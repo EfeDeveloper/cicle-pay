@@ -1,0 +1,10 @@
+<script setup lang="ts">
+import AppLayout from '@/components/layout/AppLayout.vue'
+import { Toaster } from '@/components/ui/sonner'
+</script>
+
+<template>
+  <AppLayout />
+  <Toaster position="bottom-right" :rich-colors="true" />
+</template>
+
