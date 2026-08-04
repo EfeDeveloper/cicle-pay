@@ -188,7 +188,7 @@ function handleSave() {
             <p class="text-sm font-medium">Plantilla activa</p>
             <p class="text-xs text-muted-foreground">Se generará automáticamente cada mes</p>
           </div>
-          <Switch v-model:checked="form.isActive" />
+          <Switch v-model="form.isActive" />
         </div>
       </div>
 

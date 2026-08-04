@@ -51,8 +51,8 @@ function handleToggle(val: boolean) {
         <!-- Actions -->
         <div class="flex items-center gap-1.5 shrink-0">
           <Switch
-            :checked="template.isActive"
-            @update:checked="handleToggle"
+            :model-value="template.isActive"
+            @update:model-value="handleToggle"
             :aria-label="`Toggle ${template.name}`"
           />
           <DropdownMenu>

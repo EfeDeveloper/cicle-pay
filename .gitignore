@@ -23,3 +23,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright testing
+.playwright-mcp/
+playwright-report/
+test-results/
+playwright/.cache/
+*.trace.zip
+*.har
+playwright-*.yml
+*.playwright.yml

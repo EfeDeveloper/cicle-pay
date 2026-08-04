@@ -86,13 +86,11 @@ export async function toggleTemplate(id: string, isActive: boolean): Promise<voi
 // ─── MONTHLY EXPENSES ──────────────────────────────────────────────────────
 
 export async function getMonthlyExpenses(periodKey: string): Promise<MonthlyExpense[]> {
-  const q = query(
-    collection(db, EXPENSES_COL),
-    where('periodKey', '==', periodKey),
-    orderBy('name', 'asc'),
-  )
+  const q = query(collection(db, EXPENSES_COL), where('periodKey', '==', periodKey))
   const snapshot = await getDocs(q)
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as MonthlyExpense)
+  return snapshot.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as MonthlyExpense)
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
 }
 
 /**

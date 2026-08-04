@@ -27,8 +27,8 @@ function handleToggle() {
     <!-- Checkbox -->
     <Checkbox
       :id="`expense-${expense.id}`"
-      :checked="expense.status === 'paid'"
-      @update:checked="handleToggle"
+      :model-value="expense.status === 'paid'"
+      @update:model-value="handleToggle"
       class="shrink-0"
     />
 
