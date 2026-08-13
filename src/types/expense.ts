@@ -2,6 +2,7 @@ import type { Timestamp } from 'firebase/firestore'
 
 export interface ExpenseTemplate {
   id: string
+  userId?: string
   name: string
   amount: number
   category: string
@@ -12,6 +13,7 @@ export interface ExpenseTemplate {
 
 export interface MonthlyExpense {
   id: string           // Format: `${templateId}_${periodKey}` e.g. "abc123_2026-07"
+  userId?: string
   templateId: string
   periodKey: string    // Format: "YYYY-MM"
   name: string
