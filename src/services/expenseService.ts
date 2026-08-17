@@ -14,7 +14,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
-import type { ExpenseTemplate, MonthlyExpense } from '@/types/expense'
+import type { CreateManualExpenseInput, ExpenseTemplate, MonthlyExpense } from '@/types/expense'
 import { format, addMonths, subMonths, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -62,6 +62,27 @@ export function getPrevPeriodKey(periodKey: string): string {
 export function getNextPeriodKey(periodKey: string): string {
   const date = parseISO(`${periodKey}-01`)
   return format(addMonths(date, 1), 'yyyy-MM')
+}
+
+function isValidPeriodKey(value: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value)
+}
+
+function isValidExpenseStatus(value: unknown): value is 'pending' | 'paid' {
+  return value === 'pending' || value === 'paid'
+}
+
+function normalizeLegacyStatus(value: unknown): 'pending' | 'paid' {
+  return isValidExpenseStatus(value) ? value : 'pending'
+}
+
+function normalizeLegacySource(value: unknown): 'template' | 'manual' {
+  return value === 'manual' || value === 'template' ? value : 'template'
+}
+
+function normalizeLegacyAmount(value: unknown): number {
+  const amount = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(amount) && amount > 0 ? amount : 0
 }
 
 // ─── EXPENSE TEMPLATES ─────────────────────────────────────────────────────
@@ -131,8 +152,71 @@ export async function getMonthlyExpenses(periodKey: string): Promise<MonthlyExpe
   )
   const snapshot = await getDocs(q)
   return snapshot.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as MonthlyExpense)
+    .map((d) => {
+      const data = d.data() as Omit<MonthlyExpense, 'id' | 'source'> & {
+        source?: MonthlyExpense['source']
+      }
+
+      const normalizedSource = normalizeLegacySource(data.source)
+      const normalizedStatus = normalizeLegacyStatus(data.status)
+      const normalizedAmount = normalizeLegacyAmount(data.amount)
+
+      return {
+        id: d.id,
+        ...data,
+        // Backward compatibility for legacy/invalid docs.
+        source: normalizedSource,
+        status: normalizedStatus,
+        amount: normalizedAmount,
+      } as MonthlyExpense
+    })
     .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+}
+
+export async function createManualExpense(input: CreateManualExpenseInput): Promise<MonthlyExpense> {
+  const uid = requireAuthUserId()
+
+  const name = input.name.trim()
+  const category = input.category.trim()
+  const amount = Number(input.amount)
+  const status = input.status ?? 'pending'
+
+  if (!name) {
+    throw new Error('El nombre del gasto es requerido.')
+  }
+  if (!category) {
+    throw new Error('La categoría es requerida.')
+  }
+  if (!isValidPeriodKey(input.periodKey)) {
+    throw new Error('El período debe tener formato YYYY-MM.')
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('El monto debe ser mayor a 0.')
+  }
+  if (!isValidExpenseStatus(status)) {
+    throw new Error("El estado debe ser 'pending' o 'paid'.")
+  }
+
+  const createdAt = Timestamp.now()
+  const expensePayload: Omit<MonthlyExpense, 'id'> = {
+    userId: uid,
+    templateId: null,
+    source: 'manual',
+    periodKey: input.periodKey,
+    name,
+    amount,
+    category,
+    status,
+    createdAt,
+    ...(status === 'paid' ? { paidAt: Timestamp.now() } : {}),
+  }
+
+  const ref = await addDoc(collection(db, EXPENSES_COL), expensePayload)
+
+  return {
+    id: ref.id,
+    ...expensePayload,
+  }
 }
 
 /**
@@ -143,6 +227,10 @@ export async function toggleExpenseStatus(
   id: string,
   status: 'pending' | 'paid',
 ): Promise<void> {
+  if (!isValidExpenseStatus(status)) {
+    throw new Error("El estado debe ser 'pending' o 'paid'.")
+  }
+
   const uid = requireAuthUserId()
   await assertOwnership(EXPENSES_COL, id, uid)
 
@@ -199,6 +287,7 @@ export async function generateMonthlyExpenses(
     const expense: Omit<MonthlyExpense, 'id'> = {
       userId: uid,
       templateId: template.id,
+      source: 'template',
       periodKey,
       name: template.name,
       amount: template.amount,

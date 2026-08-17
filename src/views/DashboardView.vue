@@ -17,10 +17,7 @@ const periodLabel = formatPeriodLabel(period)
 
 onMounted(async () => {
   await store.fetchExpenses(period)
-  // Only generate if no expenses exist for this month (lazy init, once per month)
-  if (store.expenses.length === 0) {
-    await store.generateForPeriod(period)
-  }
+  await store.generateForPeriod(period)
 })
 
 async function handleToggle(id: string, status: 'pending' | 'paid') {
@@ -38,19 +35,19 @@ const progressValue = () => {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 max-w-2xl mx-auto space-y-6">
+  <div class="space-y-6 mx-auto p-4 md:p-6 max-w-2xl">
     <!-- Period header -->
     <div>
-      <p class="text-xs text-muted-foreground uppercase tracking-wide font-medium">Período actual</p>
-      <h2 class="text-xl font-bold text-foreground capitalize">{{ periodLabel }}</h2>
+      <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">Período actual</p>
+      <h2 class="font-bold text-foreground text-xl capitalize">{{ periodLabel }}</h2>
     </div>
 
     <!-- Summary cards -->
-    <div v-if="store.loading" class="grid grid-cols-2 gap-3">
-      <Skeleton v-for="i in 4" :key="i" class="h-24 rounded-lg" />
+    <div v-if="store.loading" class="gap-3 grid grid-cols-2">
+      <Skeleton v-for="i in 4" :key="i" class="rounded-lg h-24" />
     </div>
 
-    <div v-else class="grid grid-cols-2 gap-3">
+    <div v-else class="gap-3 grid grid-cols-2">
       <SummaryCard
         title="Total pagado"
         :value="store.summary.paidAmount"
@@ -86,7 +83,7 @@ const progressValue = () => {
 
     <!-- Progress bar -->
     <div v-if="!store.loading && store.summary.totalCount > 0" class="space-y-2">
-      <div class="flex justify-between text-xs text-muted-foreground">
+      <div class="flex justify-between text-muted-foreground text-xs">
         <span>Progreso del mes</span>
         <span>{{ progressValue() }}%</span>
       </div>
@@ -96,20 +93,20 @@ const progressValue = () => {
     <!-- All paid banner -->
     <Card
       v-if="!store.loading && store.summary.totalCount > 0 && store.summary.pendingCount === 0"
-      class="border-emerald-200 bg-emerald-50/60"
+      class="bg-emerald-50/60 border-emerald-200"
     >
       <CardContent class="flex items-center gap-3 py-4">
         <CheckCircle2 class="w-6 h-6 text-emerald-500 shrink-0" />
         <div>
-          <p class="text-sm font-semibold text-emerald-700">¡Todo al día! 🎉</p>
-          <p class="text-xs text-emerald-600">Has pagado todos los gastos de {{ periodLabel }}</p>
+          <p class="font-semibold text-emerald-700 text-sm">¡Todo al día! 🎉</p>
+          <p class="text-emerald-600 text-xs">Has pagado todos los gastos de {{ periodLabel }}</p>
         </div>
       </CardContent>
     </Card>
 
     <!-- Pending preview -->
     <div v-if="!store.loading && store.pendingExpenses.length > 0">
-      <h3 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+      <h3 class="flex items-center gap-2 mb-3 font-semibold text-foreground text-sm">
         <Clock class="w-4 h-4 text-amber-500" />
         Próximos por pagar
       </h3>
@@ -122,7 +119,7 @@ const progressValue = () => {
         />
         <p
           v-if="store.pendingExpenses.length > 3"
-          class="text-xs text-muted-foreground text-center py-1"
+          class="py-1 text-muted-foreground text-xs text-center"
         >
           +{{ store.pendingExpenses.length - 3 }} gastos más en la sección Gastos
         </p>
@@ -132,14 +129,14 @@ const progressValue = () => {
     <!-- Empty state -->
     <div
       v-if="!store.loading && store.expenses.length === 0"
-      class="flex flex-col items-center justify-center py-16 gap-4"
+      class="flex flex-col justify-center items-center gap-4 py-16"
     >
-      <div class="size-14 rounded-full bg-muted flex items-center justify-center">
+      <div class="flex justify-center items-center bg-muted rounded-full size-14">
         <PackageOpen class="size-7 text-muted-foreground" />
       </div>
       <div class="text-center">
-        <p class="text-sm font-medium text-foreground">Sin gastos este mes</p>
-        <p class="text-xs text-muted-foreground mt-1 max-w-[28ch] mx-auto">
+        <p class="font-medium text-foreground text-sm">Sin gastos este mes</p>
+        <p class="mx-auto mt-1 max-w-[28ch] text-muted-foreground text-xs">
           No hay plantillas activas o no se han generado los gastos del mes.
         </p>
       </div>
@@ -148,7 +145,7 @@ const progressValue = () => {
           <RefreshCw class="size-4" data-icon="inline-start" />
           Iniciar mes
         </Button>
-        <RouterLink to="/templates" class="text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <RouterLink to="/templates" class="text-muted-foreground hover:text-foreground text-xs transition-colors">
           Ir a Plantillas →
         </RouterLink>
       </div>

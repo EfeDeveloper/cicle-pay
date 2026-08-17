@@ -12,9 +12,10 @@ export interface ExpenseTemplate {
 }
 
 export interface MonthlyExpense {
-  id: string           // Format: `${templateId}_${periodKey}` e.g. "abc123_2026-07"
+  id: string           // Templates: `${templateId}_${periodKey}`; manual: Firestore auto ID
   userId?: string
-  templateId: string
+  templateId?: string | null
+  source: 'template' | 'manual'
   periodKey: string    // Format: "YYYY-MM"
   name: string
   amount: number
@@ -22,6 +23,14 @@ export interface MonthlyExpense {
   status: 'pending' | 'paid'
   paidAt?: Timestamp
   createdAt: Timestamp
+}
+
+export interface CreateManualExpenseInput {
+  periodKey: string
+  name: string
+  amount: number
+  category: string
+  status?: ExpenseStatus
 }
 
 export type ExpenseStatus = 'pending' | 'paid'

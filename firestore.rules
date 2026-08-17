@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(data) {
+      return data.userId == request.auth.uid;
+    }
+
+    function isValidStatus(status) {
+      return status in ['pending', 'paid'];
+    }
+
+    function isValidSource(source) {
+      return source in ['template', 'manual'];
+    }
+
+    function isValidPeriodKey(periodKey) {
+      return periodKey is string && periodKey.matches('^\\d{4}-\\d{2}$');
+    }
+
+    function isValidAmount(amount) {
+      return amount is number && amount > 0;
+    }
+
+    function isValidMonthlyExpense(data) {
+      return isValidStatus(data.status)
+        && isValidSource(data.source)
+        && isValidPeriodKey(data.periodKey)
+        && isValidAmount(data.amount)
+        && (
+          (data.source == 'manual' && data.templateId == null)
+          || (data.source == 'template' && data.templateId is string)
+        );
+    }
+
+    function isValidExpenseTemplate(data) {
+      return isValidAmount(data.amount);
+    }
+
+    match /expense_templates/{templateId} {
+      allow read: if isSignedIn() && isOwner(resource.data);
+      allow create: if isSignedIn()
+        && isOwner(request.resource.data)
+        && isValidExpenseTemplate(request.resource.data);
+      allow update: if isSignedIn()
+        && isOwner(resource.data)
+        && isOwner(request.resource.data)
+        && isValidExpenseTemplate(request.resource.data);
+      allow delete: if isSignedIn() && isOwner(resource.data);
+    }
+
+    match /monthly_expenses/{expenseId} {
+      allow read: if isSignedIn() && isOwner(resource.data);
+      allow create: if isSignedIn()
+        && isOwner(request.resource.data)
+        && isValidMonthlyExpense(request.resource.data);
+      allow update: if isSignedIn()
+        && isOwner(resource.data)
+        && isOwner(request.resource.data)
+        && isValidMonthlyExpense(request.resource.data);
+      allow delete: if isSignedIn() && isOwner(resource.data);
+    }
+  }
+}
