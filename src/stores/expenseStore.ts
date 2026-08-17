@@ -5,8 +5,9 @@ import {
   toggleExpenseStatus,
   generateMonthlyExpenses,
   getCurrentPeriodKey,
+  createManualExpense,
 } from '@/services/expenseService'
-import type { MonthlyExpense, PeriodSummary } from '@/types/expense'
+import type { CreateManualExpenseInput, MonthlyExpense, PeriodSummary } from '@/types/expense'
 import { toast } from 'vue-sonner'
 
 export const useExpenseStore = defineStore('expenses', () => {
@@ -84,6 +85,26 @@ export const useExpenseStore = defineStore('expenses', () => {
     }
   }
 
+  async function addManualExpense(payload: CreateManualExpenseInput) {
+    try {
+      const createdExpense = await createManualExpense(payload)
+
+      if (createdExpense.periodKey !== currentPeriod.value) {
+        await fetchExpenses(createdExpense.periodKey)
+      } else {
+        expenses.value = [...expenses.value, createdExpense].sort((a, b) =>
+          a.name.localeCompare(b.name, 'es'),
+        )
+      }
+
+      toast.success('Gasto adicional guardado')
+      return createdExpense
+    } catch (e) {
+      toast.error('Error al guardar gasto adicional')
+      throw e
+    }
+  }
+
   return {
     expenses,
     loading,
@@ -94,5 +115,6 @@ export const useExpenseStore = defineStore('expenses', () => {
     fetchExpenses,
     toggleStatus,
     generateForPeriod,
+    addManualExpense,
   }
 })

@@ -21,7 +21,7 @@ function handleToggle() {
 
 <template>
   <div
-    class="flex items-center gap-3 px-4 py-3 bg-card border border-border rounded-lg hover:bg-accent/30 transition-colors"
+    class="flex items-center gap-3 bg-card hover:bg-accent/30 px-4 py-3 border border-border rounded-lg transition-colors"
     :class="{ 'opacity-75': expense.status === 'paid' }"
   >
     <!-- Checkbox -->
@@ -34,10 +34,10 @@ function handleToggle() {
 
     <!-- Contenido principal -->
     <div class="flex-1 min-w-0">
-      <div class="flex items-start justify-between gap-2">
+      <div class="flex justify-between items-start gap-2">
         <div class="min-w-0">
           <p
-            class="text-sm font-medium leading-tight truncate"
+            class="font-medium text-sm truncate leading-tight"
             :class="
               cn({
                 'line-through text-muted-foreground': expense.status === 'paid',
@@ -47,12 +47,21 @@ function handleToggle() {
           >
             {{ expense.name }}
           </p>
-          <p class="text-xs text-muted-foreground mt-0.5">{{ expense.category }}</p>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <p class="text-muted-foreground text-xs">{{ expense.category }}</p>
+            <Badge
+              v-if="expense.source === 'manual'"
+              variant="secondary"
+              class="px-1.5 py-0 h-4 text-[10px]"
+            >
+              Adicional
+            </Badge>
+          </div>
         </div>
 
         <div class="flex flex-col items-end gap-1 shrink-0">
           <span
-            class="text-sm font-semibold tabular-nums"
+            class="font-semibold tabular-nums text-sm"
             :class="
               expense.status === 'paid' ? 'text-muted-foreground line-through' : 'text-foreground'
             "
@@ -61,7 +70,7 @@ function handleToggle() {
           </span>
           <Badge
             variant="outline"
-            class="text-[10px] px-1.5 py-0 h-4"
+            class="px-1.5 py-0 h-4 text-[10px]"
             :class="
               expense.status === 'paid'
                 ? 'badge-paid'
