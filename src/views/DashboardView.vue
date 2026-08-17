@@ -17,7 +17,6 @@ const periodLabel = formatPeriodLabel(period)
 
 onMounted(async () => {
   await store.fetchExpenses(period)
-  await store.generateForPeriod(period)
 })
 
 async function handleToggle(id: string, status: 'pending' | 'paid') {
