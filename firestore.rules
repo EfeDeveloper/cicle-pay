@@ -18,11 +18,22 @@ service cloud.firestore {
     }
 
     function isValidPeriodKey(periodKey) {
-      return periodKey is string && periodKey.matches('^\\d{4}-\\d{2}$');
+      return periodKey is string && periodKey.matches('^\\d{4}-(0[1-9]|1[0-2])$');
     }
 
     function isValidAmount(amount) {
       return amount is number && amount > 0;
+    }
+
+    function isValidDescription(data) {
+      return !('description' in data)
+        || (data.description is string && data.description.size() <= 140);
+    }
+
+    function isValidDueDay(data) {
+      return !('dueDay' in data)
+        || data.dueDay == null
+        || (data.dueDay is int && data.dueDay >= 1 && data.dueDay <= 31);
     }
 
     function isValidMonthlyExpense(data) {
@@ -30,6 +41,8 @@ service cloud.firestore {
         && isValidSource(data.source)
         && isValidPeriodKey(data.periodKey)
         && isValidAmount(data.amount)
+        && isValidDescription(data)
+        && isValidDueDay(data)
         && (
           (data.source == 'manual' && data.templateId == null)
           || (data.source == 'template' && data.templateId is string)
@@ -37,7 +50,9 @@ service cloud.firestore {
     }
 
     function isValidExpenseTemplate(data) {
-      return isValidAmount(data.amount);
+      return isValidAmount(data.amount)
+        && isValidDescription(data)
+        && isValidDueDay(data);
     }
 
     match /expense_templates/{templateId} {

@@ -4,6 +4,8 @@ export interface ExpenseTemplate {
   id: string
   userId?: string
   name: string
+  description?: string
+  dueDay?: number | null
   amount: number
   category: string
   isActive: boolean
@@ -18,6 +20,8 @@ export interface MonthlyExpense {
   source: 'template' | 'manual'
   periodKey: string    // Format: "YYYY-MM"
   name: string
+  description?: string
+  dueDay?: number | null
   amount: number
   category: string
   status: 'pending' | 'paid'

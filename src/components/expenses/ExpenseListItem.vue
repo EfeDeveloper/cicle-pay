@@ -49,6 +49,7 @@ function handleToggle() {
           </p>
           <div class="flex items-center gap-1.5 mt-0.5">
             <p class="text-muted-foreground text-xs">{{ expense.category }}</p>
+            <p v-if="expense.dueDay" class="text-muted-foreground text-xs">· Vence día {{ expense.dueDay }}</p>
             <Badge
               v-if="expense.source === 'manual'"
               variant="secondary"
@@ -57,6 +58,9 @@ function handleToggle() {
               Adicional
             </Badge>
           </div>
+          <p v-if="expense.description" class="mt-1 text-muted-foreground text-xs line-clamp-2">
+            {{ expense.description }}
+          </p>
         </div>
 
         <div class="flex flex-col items-end gap-1 shrink-0">
