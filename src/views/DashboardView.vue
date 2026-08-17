@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useExpenseStore } from '@/stores/expenseStore'
 import { getCurrentPeriodKey, formatPeriodLabel } from '@/services/expenseService'
@@ -14,6 +14,7 @@ import { PackageOpen, CheckCircle2, DollarSign, Clock, ListChecks, RefreshCw } f
 const store = useExpenseStore()
 const period = getCurrentPeriodKey()
 const periodLabel = formatPeriodLabel(period)
+const initMessage = ref<{ text: string; tone: 'info' | 'warning' } | null>(null)
 
 onMounted(async () => {
   await store.fetchExpenses(period)
@@ -24,7 +25,32 @@ async function handleToggle(id: string, status: 'pending' | 'paid') {
 }
 
 async function handleInitMonth() {
-  await store.generateForPeriod(period)
+  try {
+    const result = await store.generateForPeriod(period)
+
+    if (result.created === 0 && result.skipped === 0) {
+      initMessage.value = {
+        text: 'No hay plantillas activas. Crea o activa una plantilla para iniciar el mes.',
+        tone: 'info',
+      }
+      return
+    }
+
+    if (result.created === 0 && result.skipped > 0) {
+      initMessage.value = {
+        text: 'Este mes ya estaba iniciado.',
+        tone: 'warning',
+      }
+      return
+    }
+
+    initMessage.value = null
+  } catch {
+    initMessage.value = {
+      text: 'No se pudo iniciar el mes. Intenta nuevamente.',
+      tone: 'warning',
+    }
+  }
 }
 
 const progressValue = () => {
@@ -147,6 +173,17 @@ const progressValue = () => {
         <RouterLink to="/templates" class="text-muted-foreground hover:text-foreground text-xs transition-colors">
           Ir a Plantillas →
         </RouterLink>
+      </div>
+      <div
+        v-if="initMessage"
+        :class="[
+          'mt-1 w-full max-w-md rounded-md border px-3 py-2 text-xs text-center',
+          initMessage.tone === 'warning'
+            ? 'border-amber-200 bg-amber-50 text-amber-700'
+            : 'border-slate-200 bg-slate-50 text-slate-700',
+        ]"
+      >
+        {{ initMessage.text }}
       </div>
     </div>
   </div>

@@ -9,9 +9,9 @@ import {
   query,
   where,
   setDoc,
-  orderBy,
   Timestamp,
   serverTimestamp,
+  deleteField,
 } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import type { CreateManualExpenseInput, ExpenseTemplate, MonthlyExpense } from '@/types/expense'
@@ -85,28 +85,76 @@ function normalizeLegacyAmount(value: unknown): number {
   return Number.isFinite(amount) && amount > 0 ? amount : 0
 }
 
+function normalizeDescription(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const description = value.trim()
+  if (!description) return undefined
+  return description.slice(0, 140)
+}
+
+function normalizeDueDay(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const day = typeof value === 'number' ? value : Number(value)
+  if (!Number.isInteger(day) || day < 1 || day > 31) return null
+  return day
+}
+
 // ─── EXPENSE TEMPLATES ─────────────────────────────────────────────────────
 
 export async function getTemplates(): Promise<ExpenseTemplate[]> {
   const uid = requireAuthUserId()
-  const q = query(
-    collection(db, TEMPLATES_COL),
-    where('userId', '==', uid),
-    orderBy('createdAt', 'desc'),
-  )
+  const q = query(collection(db, TEMPLATES_COL), where('userId', '==', uid))
   const snapshot = await getDocs(q)
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as ExpenseTemplate)
+  return snapshot.docs
+    .map((d) => {
+      const data = d.data() as Omit<ExpenseTemplate, 'id'>
+
+      return {
+        id: d.id,
+        ...data,
+        description: normalizeDescription(data.description),
+        dueDay: normalizeDueDay(data.dueDay),
+      } as ExpenseTemplate
+    })
+    .sort((a, b) => {
+      const aCreatedAt = a.createdAt
+      const bCreatedAt = b.createdAt
+
+      const aMillis =
+        aCreatedAt && typeof aCreatedAt === 'object' && 'toMillis' in aCreatedAt
+          ? aCreatedAt.toMillis()
+          : 0
+      const bMillis =
+        bCreatedAt && typeof bCreatedAt === 'object' && 'toMillis' in bCreatedAt
+          ? bCreatedAt.toMillis()
+          : 0
+
+      return bMillis - aMillis
+    })
 }
 
 export async function createTemplate(
   data: Omit<ExpenseTemplate, 'id' | 'createdAt' | 'updatedAt' | 'userId'>,
 ): Promise<string> {
   const uid = requireAuthUserId()
-  const ref = await addDoc(collection(db, TEMPLATES_COL), {
-    ...data,
+  const { description: rawDescription, dueDay: rawDueDay, ...baseData } = data
+  const description = normalizeDescription(rawDescription)
+  const dueDay = normalizeDueDay(rawDueDay)
+
+  const payload: Record<string, unknown> = {
+    ...baseData,
     userId: uid,
+    dueDay,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+  }
+
+  if (description) {
+    payload.description = description
+  }
+
+  const ref = await addDoc(collection(db, TEMPLATES_COL), {
+    ...payload,
   })
   return ref.id
 }
@@ -118,9 +166,23 @@ export async function updateTemplate(
   const uid = requireAuthUserId()
   await assertOwnership(TEMPLATES_COL, id, uid)
 
-  await updateDoc(doc(db, TEMPLATES_COL, id), {
-    ...data,
+  const { description, dueDay, ...rest } = data
+  const payload: Record<string, unknown> = {
+    ...rest,
     updatedAt: serverTimestamp(),
+  }
+
+  if ('description' in data) {
+    const normalizedDescription = normalizeDescription(description)
+    payload.description = normalizedDescription ?? deleteField()
+  }
+
+  if ('dueDay' in data) {
+    payload.dueDay = normalizeDueDay(dueDay)
+  }
+
+  await updateDoc(doc(db, TEMPLATES_COL, id), {
+    ...payload,
   })
 }
 
@@ -160,6 +222,8 @@ export async function getMonthlyExpenses(periodKey: string): Promise<MonthlyExpe
       const normalizedSource = normalizeLegacySource(data.source)
       const normalizedStatus = normalizeLegacyStatus(data.status)
       const normalizedAmount = normalizeLegacyAmount(data.amount)
+      const normalizedDescription = normalizeDescription(data.description)
+      const normalizedDueDay = normalizeDueDay(data.dueDay)
 
       return {
         id: d.id,
@@ -168,6 +232,8 @@ export async function getMonthlyExpenses(periodKey: string): Promise<MonthlyExpe
         source: normalizedSource,
         status: normalizedStatus,
         amount: normalizedAmount,
+        description: normalizedDescription,
+        dueDay: normalizedDueDay,
       } as MonthlyExpense
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'es'))
@@ -294,6 +360,17 @@ export async function generateMonthlyExpenses(
       category: template.category,
       status: 'pending',
       createdAt: Timestamp.now(),
+    }
+
+    const description = normalizeDescription(template.description)
+    const dueDay = normalizeDueDay(template.dueDay)
+
+    if (description) {
+      expense.description = description
+    }
+
+    if (dueDay !== null) {
+      expense.dueDay = dueDay
     }
 
     await setDoc(doc(db, EXPENSES_COL, expenseId), expense)

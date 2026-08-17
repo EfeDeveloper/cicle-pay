@@ -24,7 +24,7 @@ export const useTemplateStore = defineStore('templates', () => {
       templates.value = await getTemplates()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Error al cargar plantillas'
-      toast.error('Error al cargar plantillas')
+      toast.error(error.value ?? 'Error al cargar plantillas')
     } finally {
       loading.value = false
     }
