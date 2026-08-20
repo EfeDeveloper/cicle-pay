@@ -1,0 +1,73 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+
+# Único archivo de producto. Al copiar este setup a otro repo, reescribe
+# context / rules / operations. No pongas stack ni dominio en los agentes.
+context: |
+  Product: CyclePay — personal monthly expense tracker (Spanish UI).
+  Stack: Vue 3, TypeScript, Vite, Pinia, Vue Router, Firebase Auth + Firestore,
+  shadcn-vue (reka-ui), Tailwind CSS 4, pnpm.
+  UI: Vue SFCs with <script setup lang="ts">. Reuse src/components/ui before
+  adding primitives. Mobile-first, sober, no extra analytics chrome.
+  State: Pinia stores. Data access only via src/services/* — views do not talk
+  to Firestore directly.
+  Auth: Firebase Auth (email/password, Google popup, password reset).
+  Routes under AppLayout require a session; /auth/* is guest-only.
+  Data model (strict):
+  - ExpenseTemplate = recurring definition. Path:
+    payment_cycles/{uid}/templates/{templateId}
+  - MonthlyExpense = instance for one month. Path:
+    payment_cycles/{uid}/expenses/{expenseId}
+  - Never mix the two. Never write the legacy collections
+    expense_templates or monthly_expenses (rules deny them).
+  - Template-sourced instance id MUST be `${templateId}_${periodKey}`
+    (idempotent setDoc). Manual expenses use Firestore auto ids,
+    source: 'manual', templateId: null.
+  - periodKey format: YYYY-MM. status: pending | paid.
+  - amount > 0. description optional, omit if empty (max 140 chars).
+  - dueDay optional 1–31 or null.
+  Categories: Vivienda, Servicios, Alimentación, Transporte, Salud,
+  Educación, Entretenimiento, Seguros, Suscripciones, Otros.
+  Visual polish MUST NOT change stores, router, or Firebase payloads
+  unless the change specs say so.
+  Do not add dependencies without a critical, recorded justification.
+  Secrets only via .env (never commit keys). No commit unless the user asks.
+
+rules:
+  proposal:
+    - Include a Non-goals section.
+    - State whether the change touches UI, domain data, or both.
+    - Call out impact on ExpenseTemplate vs MonthlyExpense when relevant.
+    - Keep the proposal under ~500 words.
+  specs:
+    - Use Given/When/Then scenarios.
+    - Preserve existing capability paths under openspec/specs/.
+    - New requirements MUST respect template vs monthly-instance separation.
+    - Specs are deltas against main specs, not a rewrite of the whole product.
+  design:
+    - Reuse existing components, stores, and services before inventing new ones.
+    - Name concrete files (views, SFCs, Pinia stores, services) that will change.
+    - If UI: list empty, loading, error, and confirmation states.
+    - Record stack decisions only when they deviate from context above.
+  tasks:
+    - One checkbox per small, reviewable step.
+    - Tag tasks that need ui-designer with [ui] and tasks that need qa-tester with [qa].
+    - Do not schedule UI design or E2E for changes with no user-facing surface.
+
+operations:
+  apply:
+    guidance:
+      - Read openspec/config.yaml before implementing. It is the product source of truth.
+      - Invoke ui-designer only for tasks tagged [ui] or that create/change visible UI.
+      - Invoke developer for implementation tasks.
+      - Invoke qa-tester when the change has UI. Playwright MCP is required; skip the role if there is no user-facing surface.
+      - qa-tester returns one batched report per pass. MUST-fix goes to developer as a single lot; unspecified visuals go to the user (PREGUNTAR), never guessed.
+      - QA cycle is tester → developer (MUST-fix only) → re-test failed cases plus a short smoke of this change. Max 3 passes, then stop and show the report.
+      - Invoke tech-reviewer once after tests are green (or skipped), not after every task.
+      - Skip a role when the change has no work for it. Do not run a fixed 6-step pipeline.
+      - Max 2 retries on a failed specialist outside the QA cycle, then stop and ask the user.
+  archive:
+    guidance:
+      - Summarize what landed vs the proposal in a few bullets before finishing.
+      - Confirm main specs were updated (or synced) for the archived change.
