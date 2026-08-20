@@ -19,20 +19,22 @@ import type { CreateManualExpenseInput, ExpenseTemplate, MonthlyExpense } from '
 import { format, addMonths, subMonths, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
+const PAYMENT_CYCLES_COL = 'payment_cycles'
+
 function userTemplatesCol(uid: string) {
-  return collection(db, 'users', uid, 'templates')
+  return collection(db, PAYMENT_CYCLES_COL, uid, 'templates')
 }
 
 function userExpensesCol(uid: string) {
-  return collection(db, 'users', uid, 'expenses')
+  return collection(db, PAYMENT_CYCLES_COL, uid, 'expenses')
 }
 
 function userTemplateDoc(uid: string, id: string) {
-  return doc(db, 'users', uid, 'templates', id)
+  return doc(db, PAYMENT_CYCLES_COL, uid, 'templates', id)
 }
 
 function userExpenseDoc(uid: string, id: string) {
-  return doc(db, 'users', uid, 'expenses', id)
+  return doc(db, PAYMENT_CYCLES_COL, uid, 'expenses', id)
 }
 
 function requireAuthUserId(): string {

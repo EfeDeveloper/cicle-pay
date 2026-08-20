@@ -59,7 +59,7 @@ service cloud.firestore {
         && isValidDueDay(data);
     }
 
-    match /users/{userId} {
+    match /payment_cycles/{userId} {
       allow read, write: if false;
 
       match /templates/{templateId} {
@@ -85,6 +85,10 @@ service cloud.firestore {
           && isValidMonthlyExpense(request.resource.data);
         allow delete: if isPathOwner(userId);
       }
+    }
+
+    match /users/{userId} {
+      allow read, write: if false;
     }
 
     match /expense_templates/{templateId} {
