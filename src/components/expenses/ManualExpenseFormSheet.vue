@@ -173,7 +173,7 @@ function handleSave() {
               <p v-if="errors.periodKey" class="text-destructive text-xs">{{ errors.periodKey }}</p>
             </div>
 
-            <div class="flex justify-between items-center bg-muted/40 px-3 py-2.5 border rounded-lg">
+            <div class="flex justify-between items-center bg-muted/40 px-3 py-2.5 border border-border/70 rounded-2xl">
               <div>
                 <p class="font-medium text-sm">Marcar como pagado</p>
                 <p class="text-muted-foreground text-xs">Úsalo si el gasto ya fue cubierto</p>

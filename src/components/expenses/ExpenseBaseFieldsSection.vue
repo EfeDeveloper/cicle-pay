@@ -39,7 +39,7 @@ const dueDayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1))
 </script>
 
 <template>
-  <div class="space-y-4 bg-card p-4 border rounded-xl">
+  <div class="space-y-4 bg-card shadow-card p-5 border border-border/70 rounded-2xl">
     <div class="space-y-1">
       <p class="font-semibold text-sm">Datos principales</p>
       <p class="text-muted-foreground text-xs">Define el gasto base que se repetirá cada mes.</p>
@@ -64,7 +64,7 @@ const dueDayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1))
         maxlength="140"
         rows="3"
         :placeholder="props.descriptionPlaceholder"
-        class="bg-transparent shadow-xs px-3 py-2 border border-input aria-invalid:border-destructive focus-visible:border-ring rounded-md outline-none aria-invalid:ring-destructive/20 focus-visible:ring-3 focus-visible:ring-ring/50 w-full min-h-20 placeholder:text-muted-foreground text-sm transition-[color,box-shadow]"
+        class="bg-card shadow-xs px-4 py-2.5 border border-input aria-invalid:border-destructive focus-visible:border-ring rounded-2xl outline-none aria-invalid:ring-destructive/20 focus-visible:ring-3 focus-visible:ring-ring/50 w-full min-h-20 placeholder:text-muted-foreground text-sm transition-[color,box-shadow]"
         :class="{ 'border-destructive': props.errors.description }"
       />
       <div class="flex justify-between">
@@ -74,7 +74,7 @@ const dueDayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1))
     </div>
   </div>
 
-  <div class="space-y-4 bg-card p-4 border rounded-xl">
+  <div class="space-y-4 bg-card shadow-card p-5 border border-border/70 rounded-2xl">
     <div class="space-y-1">
       <p class="font-semibold text-sm">Configuración mensual</p>
       <p class="text-muted-foreground text-xs">Ajusta el monto, la categoría y el vencimiento.</p>
@@ -107,6 +107,7 @@ const dueDayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1))
       <Select v-model="category">
         <SelectTrigger
           :id="`${props.idPrefix}-category`"
+          class="w-full"
           :class="{ 'border-destructive': props.errors.category }"
         >
           <SelectValue placeholder="Selecciona una categoría" />
@@ -125,6 +126,7 @@ const dueDayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1))
       <Select v-model="dueDay">
         <SelectTrigger
           :id="`${props.idPrefix}-due-day`"
+          class="w-full"
           :class="{ 'border-destructive': props.errors.dueDay }"
         >
           <SelectValue placeholder="Sin día fijo" />

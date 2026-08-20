@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/services/expenseService'
 
@@ -19,45 +19,44 @@ defineProps<{
     class="relative overflow-hidden"
     :class="
       cn({
-        'border-emerald-200 bg-emerald-50/50': variant === 'paid',
-        'border-amber-200 bg-amber-50/50': variant === 'pending',
-        'border-border': !variant || variant === 'default' || variant === 'neutral',
+        'border-emerald-200/80 bg-emerald-50/40': variant === 'paid',
+        'border-amber-200/80 bg-amber-50/40': variant === 'pending',
+        'border-border/70': !variant || variant === 'default' || variant === 'neutral',
       })
     "
   >
-    <CardHeader class="pb-2">
-      <div class="flex items-center justify-between">
-        <CardTitle class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <CardContent class="flex flex-col gap-4 pt-1">
+      <div class="flex justify-between items-start gap-3">
+        <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">
           {{ title }}
-        </CardTitle>
+        </p>
         <div
           v-if="icon"
-          class="flex items-center justify-center w-8 h-8 rounded-full"
+          class="flex justify-center items-center rounded-full size-10 shrink-0"
           :class="
             cn({
               'bg-emerald-100': variant === 'paid',
               'bg-amber-100': variant === 'pending',
-              'bg-muted': !variant || variant === 'default' || variant === 'neutral',
+              'bg-brand-soft': !variant || variant === 'default' || variant === 'neutral',
             })
           "
         >
           <component
             :is="icon"
-            class="w-4 h-4"
+            class="size-4"
             :class="
               cn({
                 'text-emerald-600': variant === 'paid',
                 'text-amber-600': variant === 'pending',
-                'text-muted-foreground': !variant || variant === 'default' || variant === 'neutral',
+                'text-brand': !variant || variant === 'default' || variant === 'neutral',
               })
             "
           />
         </div>
       </div>
-    </CardHeader>
-    <CardContent>
+
       <p
-        class="text-2xl font-bold tabular-nums"
+        class="font-bold tabular-nums text-3xl leading-none tracking-tight"
         :class="
           cn({
             'text-emerald-700': variant === 'paid',
@@ -68,7 +67,13 @@ defineProps<{
       >
         {{ isCurrency ? formatCurrency(Number(value)) : value }}
       </p>
-      <p v-if="subtitle" class="text-xs text-muted-foreground mt-1">{{ subtitle }}</p>
+
+      <p
+        v-if="subtitle"
+        class="self-start bg-background/80 px-2.5 py-1 border border-border/70 rounded-full text-muted-foreground text-xs"
+      >
+        {{ subtitle }}
+      </p>
     </CardContent>
   </Card>
 </template>

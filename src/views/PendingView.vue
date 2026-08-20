@@ -38,7 +38,7 @@ const allPaid = computed(
 </script>
 
 <template>
-  <div class="space-y-4 mx-auto p-4 md:p-6 max-w-2xl">
+  <div class="space-y-5 mx-auto p-4 md:p-8 max-w-3xl">
     <div class="flex justify-end">
       <Button size="sm" class="gap-1.5" @click="manualExpenseSheetOpen = true">
         <Plus class="w-4 h-4" />
@@ -81,7 +81,7 @@ const allPaid = computed(
       <TabsContent value="all" :force-mount="true" v-show="activeTab === 'all'" class="mt-4">
         <!-- Skeletons -->
         <div v-if="store.loading" class="flex flex-col gap-2">
-          <Skeleton v-for="i in 5" :key="i" class="rounded-lg h-16" />
+          <Skeleton v-for="i in 5" :key="i" class="rounded-2xl h-16" />
         </div>
 
         <!-- All paid banner -->
@@ -114,7 +114,7 @@ const allPaid = computed(
 
       <TabsContent value="pending" :force-mount="true" v-show="activeTab === 'pending'" class="mt-4">
         <div v-if="store.loading" class="flex flex-col gap-2">
-          <Skeleton v-for="i in 3" :key="i" class="rounded-lg h-16" />
+          <Skeleton v-for="i in 3" :key="i" class="rounded-2xl h-16" />
         </div>
         <div v-else class="flex flex-col gap-2">
           <ExpenseListItem
@@ -135,7 +135,7 @@ const allPaid = computed(
 
       <TabsContent value="paid" :force-mount="true" v-show="activeTab === 'paid'" class="mt-4">
         <div v-if="store.loading" class="flex flex-col gap-2">
-          <Skeleton v-for="i in 3" :key="i" class="rounded-lg h-16" />
+          <Skeleton v-for="i in 3" :key="i" class="rounded-2xl h-16" />
         </div>
         <div v-else class="flex flex-col gap-2">
           <ExpenseListItem

@@ -164,7 +164,7 @@ function handleSave() {
           :errors="errors"
         >
           <template #config-extra>
-            <div class="flex justify-between items-center bg-muted/40 px-3 py-2.5 border rounded-lg">
+            <div class="flex justify-between items-center bg-muted/40 px-3 py-2.5 border border-border/70 rounded-2xl">
               <div>
                 <p class="font-medium text-sm">Plantilla activa</p>
                 <p class="text-muted-foreground text-xs">Disponible para generar gastos al iniciar mes</p>

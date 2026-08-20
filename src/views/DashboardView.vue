@@ -60,35 +60,20 @@ const progressValue = () => {
 </script>
 
 <template>
-  <div class="space-y-6 mx-auto p-4 md:p-6 max-w-2xl">
-    <!-- Period header -->
+  <div class="space-y-6 mx-auto p-4 md:p-8 max-w-5xl">
     <div>
       <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">Período actual</p>
-      <h2 class="font-bold text-foreground text-xl capitalize">{{ periodLabel }}</h2>
+      <h2 class="font-bold text-foreground text-2xl capitalize tracking-tight">{{ periodLabel }}</h2>
     </div>
 
-    <!-- Summary cards -->
-    <div v-if="store.loading" class="gap-3 grid grid-cols-2">
-      <Skeleton v-for="i in 4" :key="i" class="rounded-lg h-24" />
+    <div v-if="store.loading" class="space-y-5">
+      <Skeleton class="rounded-2xl h-40" />
+      <div class="gap-5 grid grid-cols-1 sm:grid-cols-3">
+        <Skeleton v-for="i in 3" :key="i" class="rounded-2xl h-36" />
+      </div>
     </div>
 
-    <div v-else class="gap-3 grid grid-cols-2">
-      <SummaryCard
-        title="Total pagado"
-        :value="store.summary.paidAmount"
-        :is-currency="true"
-        :subtitle="`${store.summary.paidCount} de ${store.summary.totalCount} gastos`"
-        :icon="CheckCircle2"
-        variant="paid"
-      />
-      <SummaryCard
-        title="Pendiente"
-        :value="store.summary.pendingAmount"
-        :is-currency="true"
-        :subtitle="`${store.summary.pendingCount} gastos restantes`"
-        :icon="Clock"
-        variant="pending"
-      />
+    <div v-else class="space-y-5">
       <SummaryCard
         title="Total del mes"
         :value="store.summary.totalAmount"
@@ -97,13 +82,31 @@ const progressValue = () => {
         :icon="DollarSign"
         variant="neutral"
       />
-      <SummaryCard
-        title="Completado"
-        :value="`${progressValue()}%`"
-        :subtitle="store.summary.totalCount === 0 ? 'Sin gastos' : `${store.summary.paidCount}/${store.summary.totalCount}`"
-        :icon="ListChecks"
-        variant="neutral"
-      />
+      <div class="gap-5 grid grid-cols-1 sm:grid-cols-3">
+        <SummaryCard
+          title="Total pagado"
+          :value="store.summary.paidAmount"
+          :is-currency="true"
+          :subtitle="`${store.summary.paidCount} de ${store.summary.totalCount} gastos`"
+          :icon="CheckCircle2"
+          variant="paid"
+        />
+        <SummaryCard
+          title="Pendiente"
+          :value="store.summary.pendingAmount"
+          :is-currency="true"
+          :subtitle="`${store.summary.pendingCount} gastos restantes`"
+          :icon="Clock"
+          variant="pending"
+        />
+        <SummaryCard
+          title="Completado"
+          :value="`${progressValue()}%`"
+          :subtitle="store.summary.totalCount === 0 ? 'Sin gastos' : `${store.summary.paidCount}/${store.summary.totalCount}`"
+          :icon="ListChecks"
+          variant="neutral"
+        />
+      </div>
     </div>
 
     <!-- Progress bar -->
@@ -112,10 +115,9 @@ const progressValue = () => {
         <span>Progreso del mes</span>
         <span>{{ progressValue() }}%</span>
       </div>
-      <Progress :model-value="progressValue()" class="h-2" />
+      <Progress :model-value="progressValue()" class="h-2.5" />
     </div>
 
-    <!-- All paid banner -->
     <Card
       v-if="!store.loading && store.summary.totalCount > 0 && store.summary.pendingCount === 0"
       class="bg-emerald-50/60 border-emerald-200"
@@ -177,7 +179,7 @@ const progressValue = () => {
       <div
         v-if="initMessage"
         :class="[
-          'mt-1 w-full max-w-md rounded-md border px-3 py-2 text-xs text-center',
+          'mt-1 w-full max-w-md rounded-full border px-3 py-2 text-xs text-center',
           initMessage.tone === 'warning'
             ? 'border-amber-200 bg-amber-50 text-amber-700'
             : 'border-slate-200 bg-slate-50 text-slate-700',

@@ -29,13 +29,13 @@ const progressValue = computed(() => {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 max-w-2xl mx-auto space-y-5">
+  <div class="space-y-5 mx-auto p-4 md:p-8 max-w-3xl">
     <!-- Period selector -->
     <div class="flex items-center justify-between">
       <Button variant="outline" size="icon" @click="prevPeriod">
         <ChevronLeft class="w-4 h-4" />
       </Button>
-      <h2 class="text-base font-semibold text-foreground capitalize">{{ periodLabel }}</h2>
+      <h2 class="font-semibold text-foreground text-xl capitalize tracking-tight">{{ periodLabel }}</h2>
       <Button variant="outline" size="icon" :disabled="isCurrentPeriod" @click="nextPeriod">
         <ChevronRight class="w-4 h-4" />
       </Button>
@@ -43,8 +43,8 @@ const progressValue = computed(() => {
 
     <!-- Period summary bar -->
     <div v-if="store.loading" class="space-y-2">
-      <Skeleton class="h-20 rounded-lg" />
-      <Skeleton class="h-3 rounded-full" />
+      <Skeleton class="rounded-2xl h-20" />
+      <Skeleton class="rounded-full h-3" />
     </div>
 
     <div v-else-if="store.expenses.length > 0" class="space-y-4">

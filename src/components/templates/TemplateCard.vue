@@ -31,7 +31,7 @@ function handleToggle(val: boolean) {
 
 <template>
   <Card
-    class="transition-opacity"
+    class="shadow-card transition-opacity"
     :class="{ 'opacity-60': !template.isActive }"
   >
     <CardHeader class="pb-2">

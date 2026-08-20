@@ -84,7 +84,7 @@ async function handleToggle(id: string, isActive: boolean) {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
+  <div class="space-y-5 mx-auto p-4 md:p-8 max-w-3xl">
     <!-- Header row -->
     <div class="flex items-center justify-between">
       <div>
@@ -205,7 +205,7 @@ const TemplatesTabContent = defineComponent({
       if (props.loading) {
         return h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 gap-3' }, [
           ...Array.from({ length: 4 }, (_, i) =>
-            h(SkeletonComp, { key: i, class: 'h-28 rounded-lg' }),
+            h(SkeletonComp, { key: i, class: 'h-28 rounded-2xl' }),
           ),
         ])
       }

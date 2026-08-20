@@ -21,7 +21,7 @@ function handleToggle() {
 
 <template>
   <div
-    class="flex items-center gap-3 bg-card hover:bg-accent/30 px-4 py-3 border border-border rounded-lg transition-colors"
+    class="flex items-center gap-3 bg-card hover:bg-accent/30 shadow-card px-4 py-3.5 border border-border/70 rounded-2xl transition-colors"
     :class="{ 'opacity-75': expense.status === 'paid' }"
   >
     <!-- Checkbox -->

@@ -10,7 +10,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="flex items-center gap-3 px-4 py-3 bg-card border border-border rounded-lg">
+  <div class="flex items-center gap-3 bg-card shadow-card px-4 py-3.5 border border-border/70 rounded-2xl">
     <!-- Status icon -->
     <div class="shrink-0">
       <CheckCircle2
