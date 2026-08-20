@@ -24,13 +24,10 @@ const userLabel = computed(() => {
     return 'Usuario autenticado'
   }
 
-  const maxLength = 28
-  if (email.length <= maxLength) {
-    return email
-  }
-
-  return `${email.slice(0, maxLength - 1)}…`
+  return email.split('@')[0]
 })
+
+const userEmail = computed(() => authStore.user?.email?.trim() ?? userLabel.value)
 
 const isLoggingOut = computed(() => authStore.isLoading)
 
@@ -58,36 +55,44 @@ async function handleLogout() {
 <template>
   <header class="bg-background/90 border-border/70 border-b backdrop-blur-md shrink-0">
     <!-- Desktop -->
-    <div class="hidden md:grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 h-16">
-      <RouterLink to="/" class="flex items-center gap-2.5 min-w-0">
-        <div class="flex justify-center items-center bg-brand rounded-xl size-8 shrink-0">
+    <div class="hidden md:flex items-center gap-3 px-4 lg:px-6 h-16">
+      <RouterLink to="/" class="flex items-center gap-2 shrink-0">
+        <div class="flex justify-center items-center bg-brand rounded-xl size-8">
           <Repeat class="size-4 text-brand-foreground" />
         </div>
-        <span class="font-semibold text-foreground text-base tracking-tight">CyclePay</span>
+        <span class="hidden lg:inline font-semibold text-foreground text-base tracking-tight">
+          CyclePay
+        </span>
       </RouterLink>
 
       <nav
-        class="flex items-center gap-1 bg-muted/80 p-1 rounded-full"
+        class="flex flex-1 justify-center items-center min-w-0"
         aria-label="Navegación principal"
       >
-        <RouterLink
-          v-for="item in APP_NAV_ITEMS"
-          :key="item.name"
-          :to="item.to"
-          class="inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-colors"
-          :class="
-            isActive(item.name)
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          "
-        >
-          <component :is="item.icon" class="size-4 shrink-0" />
-          <span>{{ item.label }}</span>
-        </RouterLink>
+        <div class="flex flex-nowrap items-center gap-0.5 bg-muted/80 p-1 rounded-full">
+          <RouterLink
+            v-for="item in APP_NAV_ITEMS"
+            :key="item.name"
+            :to="item.to"
+            class="inline-flex items-center gap-1.5 px-2.5 lg:px-3.5 py-1.5 rounded-full font-medium text-sm whitespace-nowrap transition-colors"
+            :class="
+              isActive(item.name)
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            "
+          >
+            <component :is="item.icon" class="size-4 shrink-0" />
+            <span class="hidden lg:inline">{{ item.label }}</span>
+            <span class="lg:hidden sr-only">{{ item.label }}</span>
+          </RouterLink>
+        </div>
       </nav>
 
-      <div class="flex justify-end items-center gap-3 min-w-0">
-        <p class="max-w-[16rem] text-muted-foreground text-xs truncate" :title="userLabel">
+      <div class="flex items-center gap-2 shrink-0">
+        <p
+          class="hidden xl:block max-w-[10rem] text-muted-foreground text-xs truncate"
+          :title="userEmail"
+        >
           {{ userLabel }}
         </p>
         <Button
@@ -98,7 +103,7 @@ async function handleLogout() {
           @click="handleLogout"
         >
           <LogOut class="size-4" />
-          {{ isLoggingOut ? 'Cerrando...' : 'Salir' }}
+          <span class="hidden lg:inline">{{ isLoggingOut ? 'Cerrando...' : 'Salir' }}</span>
         </Button>
       </div>
     </div>
@@ -155,7 +160,7 @@ async function handleLogout() {
       </nav>
 
       <div class="space-y-3 px-5 py-4 border-border/70 border-t">
-        <p class="text-muted-foreground text-xs truncate" :title="userLabel">{{ userLabel }}</p>
+        <p class="text-muted-foreground text-xs truncate" :title="userEmail">{{ userEmail }}</p>
         <Button
           type="button"
           variant="secondary"
@@ -164,7 +169,7 @@ async function handleLogout() {
           @click="handleLogout"
         >
           <LogOut class="size-4" />
-          {{ isLoggingOut ? 'Cerrando sesion...' : 'Cerrar sesion' }}
+          {{ isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión' }}
         </Button>
       </div>
     </SheetContent>

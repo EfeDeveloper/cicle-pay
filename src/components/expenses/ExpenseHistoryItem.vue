@@ -1,47 +1,59 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { MonthlyExpense } from '@/types/expense'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/services/expenseService'
-import { CheckCircle2, Circle } from '@lucide/vue'
+import { getCategoryIcon } from '@/lib/categoryVisuals'
+import { hasDescription } from '@/lib/recordDetail'
 
-defineProps<{
+const props = defineProps<{
   expense: MonthlyExpense
 }>()
+
+const emit = defineEmits<{
+  view: []
+}>()
+
+const icon = computed(() => getCategoryIcon(props.expense.category))
 </script>
 
 <template>
-  <div class="flex items-center gap-3 bg-card shadow-card px-4 py-3.5 border border-border/70 rounded-2xl">
-    <!-- Status icon -->
-    <div class="shrink-0">
-      <CheckCircle2
-        v-if="expense.status === 'paid'"
-        class="w-4 h-4 text-emerald-500"
-      />
-      <Circle
-        v-else
-        class="w-4 h-4 text-amber-400"
-      />
+  <div
+    class="flex items-center gap-3 bg-card hover:bg-accent/30 shadow-card px-3.5 py-3 border border-border/70 rounded-2xl cursor-pointer transition-colors"
+    role="button"
+    :aria-label="`Ver detalle de ${expense.name}`"
+    @click="emit('view')"
+  >
+    <div class="flex justify-center items-center bg-brand-soft rounded-xl size-10 shrink-0">
+      <component :is="icon" class="size-4 text-brand" />
     </div>
 
-    <!-- Contenido -->
     <div class="flex-1 min-w-0">
       <p
-        class="text-sm font-medium truncate"
+        class="font-medium text-sm truncate"
         :class="expense.status === 'paid' ? 'line-through text-muted-foreground' : 'text-foreground'"
       >
         {{ expense.name }}
       </p>
-      <p class="text-xs text-muted-foreground mt-0.5">{{ expense.category }}</p>
+      <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+        <p class="text-muted-foreground text-xs">{{ expense.category }}</p>
+        <Badge
+          v-if="hasDescription(expense.description)"
+          variant="secondary"
+          class="px-1.5 py-0 h-4 text-[10px]"
+        >
+          Nota
+        </Badge>
+      </div>
     </div>
 
-    <!-- Monto + badge -->
     <div class="flex flex-col items-end gap-1 shrink-0">
-      <span class="text-sm font-semibold tabular-nums text-foreground">
+      <span class="font-semibold tabular-nums text-sm">
         {{ formatCurrency(expense.amount) }}
       </span>
       <Badge
         variant="outline"
-        class="text-[10px] px-1.5 py-0 h-4"
+        class="px-1.5 py-0 h-4 text-[10px]"
         :class="expense.status === 'paid' ? 'badge-paid' : 'badge-pending'"
       >
         {{ expense.status === 'paid' ? 'Pagado' : 'Pendiente' }}

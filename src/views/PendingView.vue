@@ -2,18 +2,30 @@
 import { onMounted, computed, ref } from 'vue'
 import { useExpenseStore } from '@/stores/expenseStore'
 import { getCurrentPeriodKey } from '@/services/expenseService'
-import type { CreateManualExpenseInput } from '@/types/expense'
+import type { CreateManualExpenseInput, MonthlyExpense } from '@/types/expense'
 import ExpenseListItem from '@/components/expenses/ExpenseListItem.vue'
 import ManualExpenseFormSheet from '@/components/expenses/ManualExpenseFormSheet.vue'
+import ListSearchBar from '@/components/lists/ListSearchBar.vue'
+import RecordDetailSheet from '@/components/records/RecordDetailSheet.vue'
+import { expenseQueryFields, filterByQuery } from '@/lib/filterByQuery'
+import { toExpenseDetail, type RecordDetail } from '@/lib/recordDetail'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, PackageOpen, InboxIcon, Plus } from '@lucide/vue'
+import { CheckCircle2, PackageOpen, InboxIcon, Plus, Search } from '@lucide/vue'
 
 const store = useExpenseStore()
 const period = getCurrentPeriodKey()
 const manualExpenseSheetOpen = ref(false)
+const searchQuery = ref('')
+const detailOpen = ref(false)
+const detailRecord = ref<RecordDetail | null>(null)
+
+function openExpenseDetail(expense: MonthlyExpense) {
+  detailRecord.value = toExpenseDetail(expense)
+  detailOpen.value = true
+}
 
 onMounted(async () => {
   await store.fetchExpenses(period)
@@ -30,6 +42,18 @@ async function handleManualExpenseSaved(payload: CreateManualExpenseInput) {
 
 const activeTab = ref<'all' | 'pending' | 'paid'>('all')
 
+const isSearchActive = computed(() => searchQuery.value.trim().length > 0)
+
+const visibleExpenses = computed(() =>
+  filterByQuery(store.expenses, searchQuery.value, expenseQueryFields),
+)
+const visiblePending = computed(() =>
+  filterByQuery(store.pendingExpenses, searchQuery.value, expenseQueryFields),
+)
+const visiblePaid = computed(() =>
+  filterByQuery(store.paidExpenses, searchQuery.value, expenseQueryFields),
+)
+
 const allPaid = computed(
   () =>
     store.expenses.length > 0 &&
@@ -38,9 +62,18 @@ const allPaid = computed(
 </script>
 
 <template>
-  <div class="space-y-5 mx-auto p-4 md:p-8 max-w-3xl">
-    <div class="flex justify-end">
-      <Button size="sm" class="gap-1.5" @click="manualExpenseSheetOpen = true">
+  <div class="space-y-5 mx-auto p-4 md:p-8 max-w-5xl">
+    <div class="hidden sm:block">
+      <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">Mes actual</p>
+      <h2 class="font-bold text-foreground text-2xl tracking-tight">Gastos</h2>
+    </div>
+    <div class="flex sm:flex-row flex-col sm:items-center gap-3">
+      <ListSearchBar
+        id="expense-search"
+        v-model="searchQuery"
+        aria-label="Buscar gastos"
+      />
+      <Button size="sm" class="gap-1.5 sm:shrink-0" @click="manualExpenseSheetOpen = true">
         <Plus class="w-4 h-4" />
         Agregar gasto adicional
       </Button>
@@ -80,8 +113,8 @@ const allPaid = computed(
       <!-- Tab content shared -->
       <TabsContent value="all" :force-mount="true" v-show="activeTab === 'all'" class="mt-4">
         <!-- Skeletons -->
-        <div v-if="store.loading" class="flex flex-col gap-2">
-          <Skeleton v-for="i in 5" :key="i" class="rounded-2xl h-16" />
+        <div v-if="store.loading" class="gap-3 grid grid-cols-1 sm:grid-cols-2">
+          <Skeleton v-for="i in 6" :key="i" class="rounded-2xl h-20" />
         </div>
 
         <!-- All paid banner -->
@@ -98,55 +131,89 @@ const allPaid = computed(
           </CardContent>
         </Card>
 
-        <div v-if="!store.loading" class="flex flex-col gap-2">
+        <div v-if="!store.loading" class="gap-3 grid grid-cols-1 sm:grid-cols-2">
           <ExpenseListItem
-            v-for="expense in store.expenses"
+            v-for="expense in visibleExpenses"
             :key="expense.id"
             :expense="expense"
             @toggle="handleToggle"
+            @view="openExpenseDetail(expense)"
           />
-          <div v-if="store.expenses.length === 0" class="flex flex-col justify-center items-center gap-4 py-16">
-            <InboxIcon class="w-10 h-10 text-muted-foreground" />
-            <p class="text-muted-foreground text-sm">No hay gastos este mes</p>
+          <div
+            v-if="visibleExpenses.length === 0"
+            class="flex flex-col justify-center items-center gap-3 sm:col-span-2 py-16"
+          >
+            <div class="flex justify-center items-center bg-brand-soft rounded-full size-14">
+              <Search v-if="isSearchActive" class="size-7 text-brand" />
+              <InboxIcon v-else class="size-7 text-brand" />
+            </div>
+            <div class="text-center">
+              <p class="font-medium text-foreground text-sm">
+                {{ isSearchActive ? 'Sin coincidencias' : 'No hay gastos este mes' }}
+              </p>
+              <p class="mx-auto mt-1 max-w-[32ch] text-muted-foreground text-xs">
+                {{
+                  isSearchActive
+                    ? 'Prueba con otro nombre o categoría'
+                    : 'Inicia el mes desde el Dashboard o agrega un gasto adicional.'
+                }}
+              </p>
+            </div>
           </div>
         </div>
       </TabsContent>
 
       <TabsContent value="pending" :force-mount="true" v-show="activeTab === 'pending'" class="mt-4">
-        <div v-if="store.loading" class="flex flex-col gap-2">
-          <Skeleton v-for="i in 3" :key="i" class="rounded-2xl h-16" />
+        <div v-if="store.loading" class="gap-3 grid grid-cols-1 sm:grid-cols-2">
+          <Skeleton v-for="i in 4" :key="i" class="rounded-2xl h-20" />
         </div>
-        <div v-else class="flex flex-col gap-2">
+        <div v-else class="gap-3 grid grid-cols-1 sm:grid-cols-2">
           <ExpenseListItem
-            v-for="expense in store.pendingExpenses"
+            v-for="expense in visiblePending"
             :key="expense.id"
             :expense="expense"
             @toggle="handleToggle"
+            @view="openExpenseDetail(expense)"
           />
-          <div v-if="store.pendingExpenses.length === 0" class="flex flex-col justify-center items-center gap-4 py-16">
-            <CheckCircle2 class="w-10 h-10 text-emerald-500" />
+          <div
+            v-if="visiblePending.length === 0"
+            class="flex flex-col justify-center items-center gap-4 sm:col-span-2 py-16"
+          >
+            <Search v-if="isSearchActive" class="w-10 h-10 text-muted-foreground" />
+            <CheckCircle2 v-else class="w-10 h-10 text-emerald-500" />
             <div class="text-center">
-              <p class="font-medium text-foreground text-sm">¡Sin pendientes!</p>
-              <p class="mt-1 text-muted-foreground text-xs">Todos los gastos están pagados</p>
+              <p class="font-medium text-foreground text-sm">
+                {{ isSearchActive ? 'Sin coincidencias' : '¡Sin pendientes!' }}
+              </p>
+              <p class="mt-1 text-muted-foreground text-xs">
+                {{ isSearchActive ? 'Prueba con otro nombre o categoría' : 'Todos los gastos están pagados' }}
+              </p>
             </div>
           </div>
         </div>
       </TabsContent>
 
       <TabsContent value="paid" :force-mount="true" v-show="activeTab === 'paid'" class="mt-4">
-        <div v-if="store.loading" class="flex flex-col gap-2">
-          <Skeleton v-for="i in 3" :key="i" class="rounded-2xl h-16" />
+        <div v-if="store.loading" class="gap-3 grid grid-cols-1 sm:grid-cols-2">
+          <Skeleton v-for="i in 4" :key="i" class="rounded-2xl h-20" />
         </div>
-        <div v-else class="flex flex-col gap-2">
+        <div v-else class="gap-3 grid grid-cols-1 sm:grid-cols-2">
           <ExpenseListItem
-            v-for="expense in store.paidExpenses"
+            v-for="expense in visiblePaid"
             :key="expense.id"
             :expense="expense"
             @toggle="handleToggle"
+            @view="openExpenseDetail(expense)"
           />
-          <div v-if="store.paidExpenses.length === 0" class="flex flex-col justify-center items-center gap-4 py-16">
-            <PackageOpen class="w-10 h-10 text-muted-foreground" />
-            <p class="text-muted-foreground text-sm">No hay gastos pagados aún</p>
+          <div
+            v-if="visiblePaid.length === 0"
+            class="flex flex-col justify-center items-center gap-4 sm:col-span-2 py-16"
+          >
+            <Search v-if="isSearchActive" class="w-10 h-10 text-muted-foreground" />
+            <PackageOpen v-else class="w-10 h-10 text-muted-foreground" />
+            <p class="text-muted-foreground text-sm">
+              {{ isSearchActive ? 'Sin coincidencias' : 'No hay gastos pagados aún' }}
+            </p>
           </div>
         </div>
       </TabsContent>
@@ -157,5 +224,11 @@ const allPaid = computed(
     :open="manualExpenseSheetOpen"
     @close="manualExpenseSheetOpen = false"
     @saved="handleManualExpenseSaved"
+  />
+
+  <RecordDetailSheet
+    :open="detailOpen"
+    :record="detailRecord"
+    @close="detailOpen = false"
   />
 </template>

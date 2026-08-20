@@ -15,6 +15,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import ListSearchBar from '@/components/lists/ListSearchBar.vue'
+import RecordDetailSheet from '@/components/records/RecordDetailSheet.vue'
+import { filterTemplates } from '@/lib/filterTemplates'
+import { toTemplateDetail, type RecordDetail } from '@/lib/recordDetail'
 import { Plus } from '@lucide/vue'
 
 const store = useTemplateStore()
@@ -25,16 +29,29 @@ onMounted(async () => {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────
 const activeTab = ref<'all' | 'active' | 'inactive'>('all')
+const searchQuery = ref('')
 
 const filteredTemplates = computed(() => {
-  if (activeTab.value === 'active') return store.templates.filter((t) => t.isActive)
-  if (activeTab.value === 'inactive') return store.templates.filter((t) => !t.isActive)
-  return store.templates
+  let list = store.templates
+  if (activeTab.value === 'active') list = list.filter((t) => t.isActive)
+  if (activeTab.value === 'inactive') list = list.filter((t) => !t.isActive)
+  return filterTemplates(list, searchQuery.value)
 })
+
+const isSearchActive = computed(() => searchQuery.value.trim().length > 0)
+const activeCount = computed(() => store.templates.filter((template) => template.isActive).length)
+const inactiveCount = computed(() => store.templates.length - activeCount.value)
 
 // ─── Sheet (crear/editar) ─────────────────────────────────────────────────
 const sheetOpen = ref(false)
 const selectedTemplate = ref<ExpenseTemplate | undefined>(undefined)
+const detailOpen = ref(false)
+const detailRecord = ref<RecordDetail | null>(null)
+
+function openDetail(template: ExpenseTemplate) {
+  detailRecord.value = toTemplateDetail(template)
+  detailOpen.value = true
+}
 
 function openCreate() {
   selectedTemplate.value = undefined
@@ -84,20 +101,26 @@ async function handleToggle(id: string, isActive: boolean) {
 </script>
 
 <template>
-  <div class="space-y-5 mx-auto p-4 md:p-8 max-w-3xl">
-    <!-- Header row -->
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-xs text-muted-foreground">
-          {{ store.templates.filter((t) => t.isActive).length }} activas ·
-          {{ store.templates.length }} total
-        </p>
-      </div>
-      <Button size="sm" @click="openCreate" class="gap-1.5">
+  <div class="space-y-5 mx-auto p-4 md:p-8 max-w-5xl">
+    <div class="hidden sm:block">
+      <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">Recurrentes</p>
+      <h2 class="font-bold text-foreground text-2xl tracking-tight">Plantillas</h2>
+    </div>
+    <div class="flex sm:flex-row flex-col sm:items-center gap-3">
+      <ListSearchBar
+        id="template-search"
+        v-model="searchQuery"
+        aria-label="Buscar plantillas"
+      />
+      <Button size="sm" @click="openCreate" class="gap-1.5 sm:shrink-0">
         <Plus class="w-4 h-4" />
         Nueva plantilla
       </Button>
     </div>
+    <p class="text-muted-foreground text-xs">
+      {{ activeCount }} activas ·
+      {{ store.templates.length }} total
+    </p>
 
     <!-- Tabs -->
     <Tabs v-model="activeTab" class="w-full">
@@ -110,12 +133,15 @@ async function handleToggle(id: string, isActive: boolean) {
         </TabsTrigger>
         <TabsTrigger value="active">
           Activas
-          <span v-if="store.templates.filter(t => t.isActive).length" class="ml-1.5 text-[10px] bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5">
-            {{ store.templates.filter(t => t.isActive).length }}
+          <span v-if="activeCount" class="ml-1.5 text-[10px] bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5">
+            {{ activeCount }}
           </span>
         </TabsTrigger>
         <TabsTrigger value="inactive">
           Inactivas
+          <span v-if="inactiveCount" class="ml-1.5 text-[10px] bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5">
+            {{ inactiveCount }}
+          </span>
         </TabsTrigger>
       </TabsList>
 
@@ -124,27 +150,33 @@ async function handleToggle(id: string, isActive: boolean) {
         <TemplatesTabContent
           :loading="store.loading"
           :templates="filteredTemplates"
+          :search-active="isSearchActive"
           @edit="openEdit"
           @delete="confirmDelete"
           @toggle="handleToggle"
+          @view="openDetail"
         />
       </TabsContent>
       <TabsContent value="active" :force-mount="true" v-show="activeTab === 'active'" class="mt-4">
         <TemplatesTabContent
           :loading="store.loading"
           :templates="filteredTemplates"
+          :search-active="isSearchActive"
           @edit="openEdit"
           @delete="confirmDelete"
           @toggle="handleToggle"
+          @view="openDetail"
         />
       </TabsContent>
       <TabsContent value="inactive" :force-mount="true" v-show="activeTab === 'inactive'" class="mt-4">
         <TemplatesTabContent
           :loading="store.loading"
           :templates="filteredTemplates"
+          :search-active="isSearchActive"
           @edit="openEdit"
           @delete="confirmDelete"
           @toggle="handleToggle"
+          @view="openDetail"
         />
       </TabsContent>
     </Tabs>
@@ -180,6 +212,12 @@ async function handleToggle(id: string, isActive: boolean) {
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>
+
+  <RecordDetailSheet
+    :open="detailOpen"
+    :record="detailRecord"
+    @close="detailOpen = false"
+  />
 </template>
 
 <!-- Inline sub-component for tab content (avoid duplicating template code) -->
@@ -194,17 +232,18 @@ const TemplatesTabContent = defineComponent({
   name: 'TemplatesTabContent',
   props: {
     loading: Boolean,
+    searchActive: Boolean,
     templates: {
       type: Array as PropType<ExpenseTemplate[]>,
       required: true,
     },
   },
-  emits: ['edit', 'delete', 'toggle'],
+  emits: ['edit', 'delete', 'toggle', 'view'],
   setup(props, { emit }) {
     return () => {
       if (props.loading) {
-        return h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 gap-3' }, [
-          ...Array.from({ length: 4 }, (_, i) =>
+        return h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' }, [
+          ...Array.from({ length: 6 }, (_, i) =>
             h(SkeletonComp, { key: i, class: 'h-28 rounded-2xl' }),
           ),
         ])
@@ -215,20 +254,28 @@ const TemplatesTabContent = defineComponent({
           'div',
           { class: 'flex flex-col items-center justify-center py-16 gap-4' },
           [
-            h(LT, { class: 'w-12 h-12 text-muted-foreground' }),
+            h('div', { class: 'flex justify-center items-center bg-brand-soft rounded-full size-14' }, [
+              h(LT, { class: 'size-7 text-brand' }),
+            ]),
             h('div', { class: 'text-center' }, [
-              h('p', { class: 'text-sm font-medium text-foreground' }, 'Sin plantillas'),
+              h(
+                'p',
+                { class: 'text-sm font-medium text-foreground' },
+                props.searchActive ? 'Sin coincidencias' : 'Sin plantillas',
+              ),
               h(
                 'p',
                 { class: 'text-xs text-muted-foreground mt-1' },
-                'Crea plantillas para generar gastos automáticamente cada mes',
+                props.searchActive
+                  ? 'Prueba con otro nombre o categoría'
+                  : 'Crea plantillas para generar gastos automáticamente cada mes',
               ),
             ]),
           ],
         )
       }
 
-      return h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 gap-3' }, [
+      return h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' }, [
         ...props.templates.map((template) =>
           h(TemplateCardComp, {
             key: template.id,
@@ -236,6 +283,7 @@ const TemplatesTabContent = defineComponent({
             onEdit: () => emit('edit', template),
             onDelete: () => emit('delete', template),
             onToggle: (v: boolean) => emit('toggle', template.id, v),
+            onView: () => emit('view', template),
           }),
         ),
       ])

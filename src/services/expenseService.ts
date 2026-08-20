@@ -275,12 +275,12 @@ export async function createManualExpense(input: CreateManualExpenseInput): Prom
     source: 'manual',
     periodKey: input.periodKey,
     name,
-    description,
     dueDay,
     amount,
     category,
     status,
     createdAt,
+    ...(description ? { description } : {}),
     ...(status === 'paid' ? { paidAt: Timestamp.now() } : {}),
   }
 

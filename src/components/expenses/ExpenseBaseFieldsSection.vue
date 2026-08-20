@@ -21,6 +21,10 @@ const props = withDefaults(
     idPrefix: string
     namePlaceholder?: string
     descriptionPlaceholder?: string
+    mainTitle?: string
+    mainHint?: string
+    configTitle?: string
+    configHint?: string
     errors: {
       name: string
       description: string
@@ -32,6 +36,10 @@ const props = withDefaults(
   {
     namePlaceholder: 'Ej: Netflix, Renta, Internet...',
     descriptionPlaceholder: 'Notas breves para identificar este gasto...',
+    mainTitle: 'Datos principales',
+    mainHint: 'Define el gasto base que se repetirá cada mes.',
+    configTitle: 'Configuración mensual',
+    configHint: 'Ajusta el monto, la categoría y el vencimiento.',
   },
 )
 
@@ -41,8 +49,8 @@ const dueDayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1))
 <template>
   <div class="space-y-4 bg-card shadow-card p-5 border border-border/70 rounded-2xl">
     <div class="space-y-1">
-      <p class="font-semibold text-sm">Datos principales</p>
-      <p class="text-muted-foreground text-xs">Define el gasto base que se repetirá cada mes.</p>
+      <p class="font-semibold text-sm">{{ props.mainTitle }}</p>
+      <p class="text-muted-foreground text-xs">{{ props.mainHint }}</p>
     </div>
 
     <div class="flex flex-col gap-1.5">
@@ -76,8 +84,8 @@ const dueDayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1))
 
   <div class="space-y-4 bg-card shadow-card p-5 border border-border/70 rounded-2xl">
     <div class="space-y-1">
-      <p class="font-semibold text-sm">Configuración mensual</p>
-      <p class="text-muted-foreground text-xs">Ajusta el monto, la categoría y el vencimiento.</p>
+      <p class="font-semibold text-sm">{{ props.configTitle }}</p>
+      <p class="text-muted-foreground text-xs">{{ props.configHint }}</p>
     </div>
 
     <div class="flex flex-col gap-1.5">

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Mail } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import GoogleIcon from '@/components/auth/GoogleIcon.vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -145,6 +145,12 @@ async function submitGoogleLogin() {
         </Button>
       </form>
 
+      <div class="flex items-center gap-3 text-muted-foreground text-xs">
+        <span class="flex-1 bg-border h-px" />
+        <span>o</span>
+        <span class="flex-1 bg-border h-px" />
+      </div>
+
       <Button
         class="w-full"
         type="button"
@@ -152,7 +158,7 @@ async function submitGoogleLogin() {
         :disabled="authStore.isLoading"
         @click="submitGoogleLogin"
       >
-        <Mail class="w-4 h-4" />
+        <GoogleIcon />
         Continuar con Google
       </Button>
 

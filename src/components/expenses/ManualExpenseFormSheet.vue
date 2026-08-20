@@ -159,6 +159,10 @@ function handleSave() {
           v-model:category="form.category"
           v-model:dueDay="form.dueDay"
           name-placeholder="Ej: Reparación, regalo, consulta..."
+          main-title="Datos del gasto"
+          main-hint="Nombre y notas para identificarlo."
+          config-title="Importe y categoría"
+          config-hint="Monto, categoría y vencimiento de este gasto."
           :errors="errors"
         >
           <template #config-extra>
