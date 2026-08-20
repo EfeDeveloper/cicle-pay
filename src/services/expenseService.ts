@@ -246,6 +246,8 @@ export async function createManualExpense(input: CreateManualExpenseInput): Prom
   const category = input.category.trim()
   const amount = Number(input.amount)
   const status = input.status ?? 'pending'
+  const description = normalizeDescription(input.description)
+  const dueDay = normalizeDueDay(input.dueDay)
 
   if (!name) {
     throw new Error('El nombre del gasto es requerido.')
@@ -262,6 +264,9 @@ export async function createManualExpense(input: CreateManualExpenseInput): Prom
   if (!isValidExpenseStatus(status)) {
     throw new Error("El estado debe ser 'pending' o 'paid'.")
   }
+  if (input.dueDay !== undefined && input.dueDay !== null && dueDay === null) {
+    throw new Error('El día de pago debe estar entre 1 y 31.')
+  }
 
   const createdAt = Timestamp.now()
   const expensePayload: Omit<MonthlyExpense, 'id'> = {
@@ -270,6 +275,8 @@ export async function createManualExpense(input: CreateManualExpenseInput): Prom
     source: 'manual',
     periodKey: input.periodKey,
     name,
+    description,
+    dueDay,
     amount,
     category,
     status,
