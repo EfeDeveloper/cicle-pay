@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Progress } from '@/components/ui/progress'
 import { formatCurrency } from '@/services/expenseService'
 import { getCategoryIcon } from '@/lib/categoryVisuals'
+import { getBudgetProgress } from '@/lib/budgetProgress'
 
 const props = defineProps<{
   category: string
@@ -12,15 +13,10 @@ const props = defineProps<{
 }>()
 
 const icon = computed(() => getCategoryIcon(props.category))
-
-const progressValue = computed(() => {
-  if (props.allocated === null || props.allocated <= 0) {
-    return 0
-  }
-  return Math.min(100, Math.round((props.spent / props.allocated) * 100))
-})
-
 const hasBudget = computed(() => props.allocated !== null)
+const progress = computed(() =>
+  props.allocated === null ? null : getBudgetProgress(props.spent, props.allocated),
+)
 </script>
 
 <template>
@@ -39,14 +35,17 @@ const hasBudget = computed(() => props.allocated !== null)
       <p class="mt-0.5 text-[11px] text-white/55">
         {{ count }} {{ count === 1 ? 'gasto' : 'gastos' }}
         <template v-if="hasBudget">
-          · {{ formatCurrency(allocated ?? 0) }}
+          · cupo {{ formatCurrency(allocated ?? 0) }}
         </template>
       </p>
       <Progress
-        v-if="hasBudget"
-        :model-value="progressValue"
+        v-if="progress"
+        :model-value="progress.ratio"
         class="bg-white/10 mt-2 h-1.5"
       />
+      <p v-if="progress && progress.overspend > 0" class="mt-1 text-amber-300 text-[11px]">
+        Te pasaste {{ formatCurrency(progress.overspend) }}
+      </p>
     </div>
   </div>
 </template>

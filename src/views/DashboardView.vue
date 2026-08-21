@@ -2,26 +2,51 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useExpenseStore } from '@/stores/expenseStore'
+import { useBudgetStore } from '@/stores/budgetStore'
 import { getCurrentPeriodKey, formatPeriodLabel } from '@/services/expenseService'
 import { buildCategorySpend } from '@/lib/categorySpend'
 import SummaryCard from '@/components/dashboard/SummaryCard.vue'
 import CategoryBudgetCard from '@/components/dashboard/CategoryBudgetCard.vue'
+import BudgetCapBanner from '@/components/dashboard/BudgetCapBanner.vue'
+import BudgetFormSheet from '@/components/dashboard/BudgetFormSheet.vue'
 import UpcomingExpenseCard from '@/components/expenses/UpcomingExpenseCard.vue'
 import RecordDetailSheet from '@/components/records/RecordDetailSheet.vue'
 import { toExpenseDetail, type RecordDetail } from '@/lib/recordDetail'
 import type { MonthlyExpense } from '@/types/expense'
+import type { BudgetFormDefaults } from '@/stores/budgetStore'
+import type { SaveBudgetInput } from '@/types/budget'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { PackageOpen, CheckCircle2, DollarSign, Clock, ListChecks, RefreshCw } from '@lucide/vue'
 
 const store = useExpenseStore()
+const budgetStore = useBudgetStore()
 const period = getCurrentPeriodKey()
 const periodLabel = formatPeriodLabel(period)
+const ready = ref(false)
 const initMessage = ref<{ text: string; tone: 'info' | 'warning' } | null>(null)
 const detailOpen = ref(false)
 const detailRecord = ref<RecordDetail | null>(null)
+const sheetOpen = ref(false)
+const deleteDialogOpen = ref(false)
+const formDefaults = ref<BudgetFormDefaults>({
+  totalAmount: null,
+  categories: null,
+  prefilledFromPrevious: false,
+  hasExistingBudget: false,
+})
 
 function openExpenseDetail(expense: MonthlyExpense) {
   detailRecord.value = toExpenseDetail(expense)
@@ -29,7 +54,11 @@ function openExpenseDetail(expense: MonthlyExpense) {
 }
 
 onMounted(async () => {
-  await store.fetchExpenses(period)
+  await Promise.all([
+    store.fetchExpenses(period).catch(() => undefined),
+    budgetStore.fetchBudget(period).catch(() => undefined),
+  ])
+  ready.value = true
 })
 
 async function handleToggle(id: string, status: 'pending' | 'paid') {
@@ -65,22 +94,70 @@ async function handleInitMonth() {
   }
 }
 
+async function openBudgetSheet() {
+  try {
+    formDefaults.value = await budgetStore.loadFormDefaults(period)
+  } catch {
+    formDefaults.value = {
+      totalAmount: null,
+      categories: null,
+      prefilledFromPrevious: false,
+      hasExistingBudget: false,
+    }
+  }
+  sheetOpen.value = true
+}
+
+async function handleSaveBudget(payload: SaveBudgetInput) {
+  try {
+    await budgetStore.saveBudget(period, payload)
+    sheetOpen.value = false
+  } catch {
+    // Toast del store; el sheet permanece abierto
+  }
+}
+
+async function executeDeleteBudget() {
+  try {
+    await budgetStore.deleteBudget(period)
+    deleteDialogOpen.value = false
+    sheetOpen.value = false
+  } catch {
+    deleteDialogOpen.value = false
+  }
+}
+
 const progressValue = () => {
   if (store.summary.totalCount === 0) return 0
   return Math.round((store.summary.paidCount / store.summary.totalCount) * 100)
 }
 
-const categorySpend = computed(() => buildCategorySpend(store.expenses))
+const categorySpend = computed(() =>
+  buildCategorySpend(store.expenses, budgetStore.budget?.categories),
+)
+
+const hasBudget = computed(() => budgetStore.budget !== null)
 </script>
 
 <template>
   <div class="space-y-6 mx-auto p-4 md:p-8 max-w-5xl">
-    <div>
-      <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">Período actual</p>
-      <h2 class="font-bold text-foreground text-2xl capitalize tracking-tight">{{ periodLabel }}</h2>
+    <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div>
+        <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">Período actual</p>
+        <h2 class="font-bold text-foreground text-2xl capitalize tracking-tight">{{ periodLabel }}</h2>
+      </div>
+      <Button
+        v-if="ready"
+        variant="outline"
+        size="sm"
+        class="w-full md:w-auto"
+        @click="openBudgetSheet"
+      >
+        {{ hasBudget ? 'Editar presupuesto' : 'Definir presupuesto' }}
+      </Button>
     </div>
 
-    <div v-if="store.loading" class="gap-5 grid lg:grid-cols-12">
+    <div v-if="!ready" class="gap-5 grid lg:grid-cols-12">
       <Skeleton class="lg:col-span-8 rounded-2xl h-64" />
       <Skeleton class="lg:col-span-4 rounded-2xl h-64" />
     </div>
@@ -91,6 +168,11 @@ const categorySpend = computed(() => buildCategorySpend(store.expenses))
         :class="store.expenses.length === 0 ? 'lg:col-span-12' : 'lg:col-span-8'"
       >
         <template v-if="store.expenses.length === 0">
+          <BudgetCapBanner
+            v-if="budgetStore.budget"
+            :spent="store.summary.totalAmount"
+            :cap="budgetStore.budget.totalAmount"
+          />
           <Card class="shadow-card mx-auto max-w-xl">
             <CardContent class="flex flex-col items-center gap-4 py-12">
               <div class="flex justify-center items-center bg-brand-soft rounded-full size-14">
@@ -137,6 +219,11 @@ const categorySpend = computed(() => buildCategorySpend(store.expenses))
             :subtitle="periodLabel"
             :icon="DollarSign"
             variant="neutral"
+          />
+          <BudgetCapBanner
+            v-if="budgetStore.budget"
+            :spent="store.summary.totalAmount"
+            :cap="budgetStore.budget.totalAmount"
           />
           <div class="gap-3 md:gap-4 grid grid-cols-3">
             <SummaryCard
@@ -240,6 +327,40 @@ const categorySpend = computed(() => buildCategorySpend(store.expenses))
         </RouterLink>
       </section>
     </div>
+
+    <BudgetFormSheet
+      :open="sheetOpen"
+      :period-label="periodLabel"
+      :has-existing-budget="formDefaults.hasExistingBudget"
+      :initial-total="formDefaults.totalAmount"
+      :initial-categories="formDefaults.categories"
+      :prefilled-from-previous="formDefaults.prefilledFromPrevious"
+      :saving="budgetStore.saving"
+      @close="sheetOpen = false"
+      @saved="handleSaveBudget"
+      @request-delete="deleteDialogOpen = true"
+    />
+
+    <AlertDialog :open="deleteDialogOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Quitar presupuesto?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Se elimina el tope y los cupos de {{ periodLabel }}. Tus gastos no se modifican.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel @click="deleteDialogOpen = false">Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            class="bg-destructive text-white hover:bg-destructive/90"
+            :disabled="budgetStore.saving"
+            @click="executeDeleteBudget"
+          >
+            Quitar presupuesto
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     <RecordDetailSheet
       :open="detailOpen"
