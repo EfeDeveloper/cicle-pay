@@ -12,15 +12,30 @@ import {
   Timestamp,
   serverTimestamp,
   deleteField,
+  type DocumentReference,
 } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import type { CreateManualExpenseInput, ExpenseTemplate, MonthlyExpense } from '@/types/expense'
 import { format, addMonths, subMonths, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-// ─── Collection references ─────────────────────────────────────────────────
-const TEMPLATES_COL = 'expense_templates'
-const EXPENSES_COL = 'monthly_expenses'
+const PAYMENT_CYCLES_COL = 'payment_cycles'
+
+function userTemplatesCol(uid: string) {
+  return collection(db, PAYMENT_CYCLES_COL, uid, 'templates')
+}
+
+function userExpensesCol(uid: string) {
+  return collection(db, PAYMENT_CYCLES_COL, uid, 'expenses')
+}
+
+function userTemplateDoc(uid: string, id: string) {
+  return doc(db, PAYMENT_CYCLES_COL, uid, 'templates', id)
+}
+
+function userExpenseDoc(uid: string, id: string) {
+  return doc(db, PAYMENT_CYCLES_COL, uid, 'expenses', id)
+}
 
 function requireAuthUserId(): string {
   const uid = auth.currentUser?.uid
@@ -30,15 +45,10 @@ function requireAuthUserId(): string {
   return uid
 }
 
-async function assertOwnership(collectionName: string, id: string, uid: string): Promise<void> {
-  const snapshot = await getDoc(doc(db, collectionName, id))
+async function assertUserDocExists(ref: DocumentReference): Promise<void> {
+  const snapshot = await getDoc(ref)
   if (!snapshot.exists()) {
     throw new Error('Recurso no encontrado.')
-  }
-
-  const data = snapshot.data() as { userId?: string }
-  if (data.userId !== uid) {
-    throw new Error('No tienes permisos para modificar este recurso.')
   }
 }
 
@@ -103,8 +113,7 @@ function normalizeDueDay(value: unknown): number | null {
 
 export async function getTemplates(): Promise<ExpenseTemplate[]> {
   const uid = requireAuthUserId()
-  const q = query(collection(db, TEMPLATES_COL), where('userId', '==', uid))
-  const snapshot = await getDocs(q)
+  const snapshot = await getDocs(userTemplatesCol(uid))
   return snapshot.docs
     .map((d) => {
       const data = d.data() as Omit<ExpenseTemplate, 'id'>
@@ -153,7 +162,7 @@ export async function createTemplate(
     payload.description = description
   }
 
-  const ref = await addDoc(collection(db, TEMPLATES_COL), {
+  const ref = await addDoc(userTemplatesCol(uid), {
     ...payload,
   })
   return ref.id
@@ -164,7 +173,8 @@ export async function updateTemplate(
   data: Partial<Omit<ExpenseTemplate, 'id' | 'createdAt' | 'userId'>>,
 ): Promise<void> {
   const uid = requireAuthUserId()
-  await assertOwnership(TEMPLATES_COL, id, uid)
+  const ref = userTemplateDoc(uid, id)
+  await assertUserDocExists(ref)
 
   const { description, dueDay, ...rest } = data
   const payload: Record<string, unknown> = {
@@ -181,23 +191,25 @@ export async function updateTemplate(
     payload.dueDay = normalizeDueDay(dueDay)
   }
 
-  await updateDoc(doc(db, TEMPLATES_COL, id), {
+  await updateDoc(ref, {
     ...payload,
   })
 }
 
 export async function deleteTemplate(id: string): Promise<void> {
   const uid = requireAuthUserId()
-  await assertOwnership(TEMPLATES_COL, id, uid)
+  const ref = userTemplateDoc(uid, id)
+  await assertUserDocExists(ref)
 
-  await deleteDoc(doc(db, TEMPLATES_COL, id))
+  await deleteDoc(ref)
 }
 
 export async function toggleTemplate(id: string, isActive: boolean): Promise<void> {
   const uid = requireAuthUserId()
-  await assertOwnership(TEMPLATES_COL, id, uid)
+  const ref = userTemplateDoc(uid, id)
+  await assertUserDocExists(ref)
 
-  await updateDoc(doc(db, TEMPLATES_COL, id), {
+  await updateDoc(ref, {
     isActive,
     updatedAt: serverTimestamp(),
   })
@@ -207,11 +219,7 @@ export async function toggleTemplate(id: string, isActive: boolean): Promise<voi
 
 export async function getMonthlyExpenses(periodKey: string): Promise<MonthlyExpense[]> {
   const uid = requireAuthUserId()
-  const q = query(
-    collection(db, EXPENSES_COL),
-    where('periodKey', '==', periodKey),
-    where('userId', '==', uid),
-  )
+  const q = query(userExpensesCol(uid), where('periodKey', '==', periodKey))
   const snapshot = await getDocs(q)
   return snapshot.docs
     .map((d) => {
@@ -246,6 +254,8 @@ export async function createManualExpense(input: CreateManualExpenseInput): Prom
   const category = input.category.trim()
   const amount = Number(input.amount)
   const status = input.status ?? 'pending'
+  const description = normalizeDescription(input.description)
+  const dueDay = normalizeDueDay(input.dueDay)
 
   if (!name) {
     throw new Error('El nombre del gasto es requerido.')
@@ -262,6 +272,9 @@ export async function createManualExpense(input: CreateManualExpenseInput): Prom
   if (!isValidExpenseStatus(status)) {
     throw new Error("El estado debe ser 'pending' o 'paid'.")
   }
+  if (input.dueDay !== undefined && input.dueDay !== null && dueDay === null) {
+    throw new Error('El día de pago debe estar entre 1 y 31.')
+  }
 
   const createdAt = Timestamp.now()
   const expensePayload: Omit<MonthlyExpense, 'id'> = {
@@ -270,14 +283,16 @@ export async function createManualExpense(input: CreateManualExpenseInput): Prom
     source: 'manual',
     periodKey: input.periodKey,
     name,
+    dueDay,
     amount,
     category,
     status,
     createdAt,
+    ...(description ? { description } : {}),
     ...(status === 'paid' ? { paidAt: Timestamp.now() } : {}),
   }
 
-  const ref = await addDoc(collection(db, EXPENSES_COL), expensePayload)
+  const ref = await addDoc(userExpensesCol(uid), expensePayload)
 
   return {
     id: ref.id,
@@ -298,7 +313,8 @@ export async function toggleExpenseStatus(
   }
 
   const uid = requireAuthUserId()
-  await assertOwnership(EXPENSES_COL, id, uid)
+  const ref = userExpenseDoc(uid, id)
+  await assertUserDocExists(ref)
 
   const data: Record<string, unknown> = { status }
   if (status === 'paid') {
@@ -306,7 +322,7 @@ export async function toggleExpenseStatus(
   } else {
     data['paidAt'] = null
   }
-  await updateDoc(doc(db, EXPENSES_COL, id), data)
+  await updateDoc(ref, data)
 }
 
 /**
@@ -323,11 +339,7 @@ export async function generateMonthlyExpenses(
 ): Promise<{ created: number; skipped: number }> {
   const uid = requireAuthUserId()
   // 1. Get all active templates
-  const templatesQuery = query(
-    collection(db, TEMPLATES_COL),
-    where('isActive', '==', true),
-    where('userId', '==', uid),
-  )
+  const templatesQuery = query(userTemplatesCol(uid), where('isActive', '==', true))
   const templatesSnap = await getDocs(templatesQuery)
   const templates = templatesSnap.docs.map((d) => ({
     id: d.id,
@@ -373,7 +385,7 @@ export async function generateMonthlyExpenses(
       expense.dueDay = dueDay
     }
 
-    await setDoc(doc(db, EXPENSES_COL, expenseId), expense)
+    await setDoc(userExpenseDoc(uid, expenseId), expense)
     created++
   }
 

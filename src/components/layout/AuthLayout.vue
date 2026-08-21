@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import { Repeat } from '@lucide/vue'
+import AuthBrandPanel from '@/components/auth/AuthBrandPanel.vue'
 </script>
 
 <template>
-  <div class="bg-background px-4 py-10 min-h-screen">
-    <div class="flex flex-col justify-center mx-auto w-full max-w-md min-h-[calc(100vh-5rem)]">
-      <div class="flex justify-center items-center gap-2 mb-6">
-        <div class="flex justify-center items-center bg-primary rounded-md w-9 h-9">
-          <Repeat class="w-4 h-4 text-primary-foreground" />
-        </div>
-        <p class="font-semibold text-xl tracking-tight">CyclePay</p>
+  <div class="relative bg-background min-h-screen overflow-hidden">
+    <div
+      class="lg:hidden -top-32 -right-16 absolute bg-brand/15 blur-3xl rounded-full size-64 pointer-events-none"
+    />
+    <div
+      class="lg:hidden -bottom-24 -left-12 absolute bg-brand/10 blur-3xl rounded-full size-56 pointer-events-none"
+    />
+
+    <div class="lg:grid lg:grid-cols-2 min-h-screen">
+      <AuthBrandPanel />
+
+      <div class="z-10 relative flex flex-col justify-center mx-auto px-4 py-10 w-full max-w-md min-h-screen">
+        <AuthBrandPanel class="lg:hidden mb-8" compact />
+        <RouterView />
       </div>
-      <RouterView />
     </div>
   </div>
 </template>

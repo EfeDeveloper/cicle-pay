@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { EXPENSE_CATEGORIES, type CreateManualExpenseInput } from '@/types/expense'
+import type { CreateManualExpenseInput } from '@/types/expense'
 import { getCurrentPeriodKey } from '@/services/expenseService'
+import ExpenseBaseFieldsSection from '@/components/expenses/ExpenseBaseFieldsSection.vue'
 import {
   Sheet,
   SheetContent,
@@ -14,18 +15,17 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 
-const props = defineProps<{
-  open: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    periodKey?: string
+  }>(),
+  {
+    periodKey: undefined,
+  },
+)
 
 const emit = defineEmits<{
   close: []
@@ -34,7 +34,9 @@ const emit = defineEmits<{
 
 const form = ref({
   name: '',
+  description: '',
   amount: '' as string | number,
+  dueDay: 'none',
   category: '',
   periodKey: getCurrentPeriodKey(),
   markAsPaid: false,
@@ -42,7 +44,9 @@ const form = ref({
 
 const errors = ref({
   name: '',
+  description: '',
   amount: '',
+  dueDay: '',
   category: '',
   periodKey: '',
 })
@@ -50,21 +54,25 @@ const errors = ref({
 watch(
   () => props.open,
   (open) => {
-    if (!open) resetForm()
+    if (open) resetForm()
   },
 )
 
 function resetForm() {
   form.value = {
     name: '',
+    description: '',
     amount: '',
+    dueDay: 'none',
     category: '',
-    periodKey: getCurrentPeriodKey(),
+    periodKey: props.periodKey ?? getCurrentPeriodKey(),
     markAsPaid: false,
   }
   errors.value = {
     name: '',
+    description: '',
     amount: '',
+    dueDay: '',
     category: '',
     periodKey: '',
   }
@@ -73,7 +81,9 @@ function resetForm() {
 function validate(): boolean {
   errors.value = {
     name: '',
+    description: '',
     amount: '',
+    dueDay: '',
     category: '',
     periodKey: '',
   }
@@ -85,10 +95,24 @@ function validate(): boolean {
     valid = false
   }
 
+  const description = form.value.description.trim()
+  if (description.length > 140) {
+    errors.value.description = 'La descripción no puede superar 140 caracteres'
+    valid = false
+  }
+
   const amount = Number(form.value.amount)
   if (!form.value.amount || Number.isNaN(amount) || amount <= 0) {
     errors.value.amount = 'Ingresa un monto válido mayor a 0'
     valid = false
+  }
+
+  if (form.value.dueDay !== 'none') {
+    const day = Number(form.value.dueDay)
+    if (!Number.isInteger(day) || day < 1 || day > 31) {
+      errors.value.dueDay = 'Selecciona un día entre 1 y 31'
+      valid = false
+    }
   }
 
   if (!form.value.category) {
@@ -107,9 +131,14 @@ function validate(): boolean {
 function handleSave() {
   if (!validate()) return
 
+  const description = form.value.description.trim()
+  const dueDay = form.value.dueDay === 'none' ? null : Number(form.value.dueDay)
+
   emit('saved', {
     name: form.value.name.trim(),
+    description,
     amount: Number(form.value.amount),
+    dueDay,
     category: form.value.category,
     periodKey: form.value.periodKey,
     status: form.value.markAsPaid ? 'paid' : 'pending',
@@ -119,7 +148,7 @@ function handleSave() {
 
 <template>
   <Sheet :open="open" @update:open="(v) => !v && emit('close')">
-    <SheetContent side="right" class="flex flex-col w-full sm:max-w-md">
+    <SheetContent side="right" class="flex flex-col w-full sm:max-w-md h-full min-h-0 overflow-hidden">
       <SheetHeader>
         <SheetTitle>Agregar gasto adicional</SheetTitle>
         <SheetDescription>
@@ -127,79 +156,45 @@ function handleSave() {
         </SheetDescription>
       </SheetHeader>
 
-      <div class="flex flex-col flex-1 gap-5 py-6">
-        <div class="flex flex-col gap-1.5">
-          <Label for="manual-name">Nombre</Label>
-          <Input
-            id="manual-name"
-            v-model="form.name"
-            placeholder="Ej: Reparación, regalo, consulta..."
-            :class="{ 'border-destructive': errors.name }"
-          />
-          <p v-if="errors.name" class="text-destructive text-xs">{{ errors.name }}</p>
-        </div>
+      <div class="flex-1 space-y-5 px-2 sm:px-3 py-6 min-h-0 overflow-y-auto overscroll-contain">
+        <ExpenseBaseFieldsSection
+          id-prefix="manual"
+          v-model:name="form.name"
+          v-model:description="form.description"
+          v-model:amount="form.amount"
+          v-model:category="form.category"
+          v-model:dueDay="form.dueDay"
+          name-placeholder="Ej: Reparación, regalo, consulta..."
+          main-title="Datos del gasto"
+          main-hint="Nombre y notas para identificarlo."
+          config-title="Importe y categoría"
+          config-hint="Monto, categoría y vencimiento de este gasto."
+          :errors="errors"
+        >
+          <template #config-extra>
+            <div class="flex flex-col gap-1.5">
+              <Label for="manual-period">Período</Label>
+              <Input
+                id="manual-period"
+                v-model="form.periodKey"
+                type="month"
+                :class="{ 'border-destructive': errors.periodKey }"
+              />
+              <p v-if="errors.periodKey" class="text-destructive text-xs">{{ errors.periodKey }}</p>
+            </div>
 
-        <div class="flex flex-col gap-1.5">
-          <Label for="manual-amount">Monto</Label>
-          <div class="relative">
-            <span
-              class="top-1/2 left-3 absolute text-muted-foreground text-sm -translate-y-1/2 pointer-events-none"
-            >
-              $
-            </span>
-            <Input
-              id="manual-amount"
-              v-model="form.amount"
-              type="number"
-              min="0.01"
-              step="0.01"
-              placeholder="0.00"
-              class="pl-6"
-              :class="{ 'border-destructive': errors.amount }"
-            />
-          </div>
-          <p v-if="errors.amount" class="text-destructive text-xs">{{ errors.amount }}</p>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <Label for="manual-category">Categoría</Label>
-          <Select v-model="form.category">
-            <SelectTrigger
-              id="manual-category"
-              :class="{ 'border-destructive': errors.category }"
-            >
-              <SelectValue placeholder="Selecciona una categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="cat in EXPENSE_CATEGORIES" :key="cat" :value="cat">
-                {{ cat }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p v-if="errors.category" class="text-destructive text-xs">{{ errors.category }}</p>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <Label for="manual-period">Período</Label>
-          <Input
-            id="manual-period"
-            v-model="form.periodKey"
-            type="month"
-            :class="{ 'border-destructive': errors.periodKey }"
-          />
-          <p v-if="errors.periodKey" class="text-destructive text-xs">{{ errors.periodKey }}</p>
-        </div>
-
-        <div class="flex justify-between items-center bg-muted px-3 py-2 rounded-lg">
-          <div>
-            <p class="font-medium text-sm">Marcar como pagado</p>
-            <p class="text-muted-foreground text-xs">Úsalo si el gasto ya fue cubierto</p>
-          </div>
-          <Switch v-model="form.markAsPaid" />
-        </div>
+            <div class="flex justify-between items-center bg-muted/40 px-3 py-2.5 border border-border/70 rounded-2xl">
+              <div>
+                <p class="font-medium text-sm">Marcar como pagado</p>
+                <p class="text-muted-foreground text-xs">Úsalo si el gasto ya fue cubierto</p>
+              </div>
+              <Switch v-model="form.markAsPaid" />
+            </div>
+          </template>
+        </ExpenseBaseFieldsSection>
       </div>
 
-      <SheetFooter class="flex flex-row gap-2">
+      <SheetFooter class="pb-[max(1rem,env(safe-area-inset-bottom))] flex flex-row gap-2 shrink-0">
         <SheetClose as-child>
           <Button variant="outline" class="flex-1" @click="emit('close')">Cancelar</Button>
         </SheetClose>

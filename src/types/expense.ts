@@ -32,7 +32,9 @@ export interface MonthlyExpense {
 export interface CreateManualExpenseInput {
   periodKey: string
   name: string
+  description?: string
   amount: number
+  dueDay?: number | null
   category: string
   status?: ExpenseStatus
 }
