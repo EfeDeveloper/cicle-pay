@@ -17,9 +17,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 
-const props = defineProps<{
-  open: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    periodKey?: string
+  }>(),
+  {
+    periodKey: undefined,
+  },
+)
 
 const emit = defineEmits<{
   close: []
@@ -48,7 +54,7 @@ const errors = ref({
 watch(
   () => props.open,
   (open) => {
-    if (!open) resetForm()
+    if (open) resetForm()
   },
 )
 
@@ -59,7 +65,7 @@ function resetForm() {
     amount: '',
     dueDay: 'none',
     category: '',
-    periodKey: getCurrentPeriodKey(),
+    periodKey: props.periodKey ?? getCurrentPeriodKey(),
     markAsPaid: false,
   }
   errors.value = {

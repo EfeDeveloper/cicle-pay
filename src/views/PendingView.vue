@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
+import { watch, computed, ref } from 'vue'
 import { useExpenseStore } from '@/stores/expenseStore'
-import { getCurrentPeriodKey } from '@/services/expenseService'
+import { usePeriod } from '@/composables/usePeriod'
 import type { CreateManualExpenseInput, MonthlyExpense } from '@/types/expense'
 import ExpenseListItem from '@/components/expenses/ExpenseListItem.vue'
 import ManualExpenseFormSheet from '@/components/expenses/ManualExpenseFormSheet.vue'
+import DueDayCalendar from '@/components/lists/DueDayCalendar.vue'
 import ListSearchBar from '@/components/lists/ListSearchBar.vue'
 import RecordDetailSheet from '@/components/records/RecordDetailSheet.vue'
 import { expenseQueryFields, filterByQuery } from '@/lib/filterByQuery'
+import {
+  buildDueDayMarks,
+  filterByDueDay,
+  type DueDayFilter,
+} from '@/lib/dueDayCalendar'
 import { toExpenseDetail, type RecordDetail } from '@/lib/recordDetail'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -16,9 +22,11 @@ import { Button } from '@/components/ui/button'
 import { CheckCircle2, PackageOpen, InboxIcon, Plus, Search } from '@lucide/vue'
 
 const store = useExpenseStore()
-const period = getCurrentPeriodKey()
+const { currentPeriod, setPeriod, isCurrentPeriod, periodLabel } = usePeriod()
+const ready = ref(false)
 const manualExpenseSheetOpen = ref(false)
 const searchQuery = ref('')
+const dueDayFilter = ref<DueDayFilter>(null)
 const detailOpen = ref(false)
 const detailRecord = ref<RecordDetail | null>(null)
 
@@ -27,9 +35,15 @@ function openExpenseDetail(expense: MonthlyExpense) {
   detailOpen.value = true
 }
 
-onMounted(async () => {
-  await store.fetchExpenses(period)
-})
+watch(
+  currentPeriod,
+  async (period) => {
+    dueDayFilter.value = null
+    await store.fetchExpenses(period)
+    ready.value = true
+  },
+  { immediate: true },
+)
 
 async function handleToggle(id: string, status: 'pending' | 'paid') {
   await store.toggleStatus(id, status)
@@ -43,16 +57,30 @@ async function handleManualExpenseSaved(payload: CreateManualExpenseInput) {
 const activeTab = ref<'all' | 'pending' | 'paid'>('all')
 
 const isSearchActive = computed(() => searchQuery.value.trim().length > 0)
+const isFilterActive = computed(() => isSearchActive.value || dueDayFilter.value !== null)
 
-const visibleExpenses = computed(() =>
+const queriedExpenses = computed(() =>
   filterByQuery(store.expenses, searchQuery.value, expenseQueryFields),
 )
-const visiblePending = computed(() =>
+const queriedPending = computed(() =>
   filterByQuery(store.pendingExpenses, searchQuery.value, expenseQueryFields),
 )
-const visiblePaid = computed(() =>
+const queriedPaid = computed(() =>
   filterByQuery(store.paidExpenses, searchQuery.value, expenseQueryFields),
 )
+
+const queriedForMarks = computed(() => {
+  if (activeTab.value === 'pending') return queriedPending.value
+  if (activeTab.value === 'paid') return queriedPaid.value
+  return queriedExpenses.value
+})
+
+const dueDayMarks = computed(() => buildDueDayMarks(queriedForMarks.value, 'status'))
+const hasUndated = computed(() => queriedForMarks.value.some((item) => item.dueDay == null))
+
+const visibleExpenses = computed(() => filterByDueDay(queriedExpenses.value, dueDayFilter.value))
+const visiblePending = computed(() => filterByDueDay(queriedPending.value, dueDayFilter.value))
+const visiblePaid = computed(() => filterByDueDay(queriedPaid.value, dueDayFilter.value))
 
 const allPaid = computed(
   () =>
@@ -64,14 +92,30 @@ const allPaid = computed(
 <template>
   <div class="space-y-5 mx-auto p-4 md:p-8 max-w-5xl">
     <div class="hidden sm:block">
-      <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">Mes actual</p>
-      <h2 class="font-bold text-foreground text-2xl tracking-tight">Gastos</h2>
+      <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        {{ isCurrentPeriod ? 'Mes actual' : 'Período' }}
+      </p>
+      <h2 class="font-bold text-foreground text-2xl tracking-tight capitalize">
+        Gastos
+        <span class="font-medium text-muted-foreground text-base"> · {{ periodLabel }}</span>
+      </h2>
     </div>
-    <div class="flex sm:flex-row flex-col sm:items-center gap-3">
+    <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
       <ListSearchBar
         id="expense-search"
         v-model="searchQuery"
         aria-label="Buscar gastos"
+      />
+      <DueDayCalendar
+        v-if="ready"
+        v-model="dueDayFilter"
+        :period-key="currentPeriod"
+        :marks="dueDayMarks"
+        mode="status"
+        :has-undated="hasUndated"
+        allow-period-change
+        :disabled="store.loading"
+        @update:period-key="setPeriod"
       />
       <Button size="sm" class="gap-1.5 sm:shrink-0" @click="manualExpenseSheetOpen = true">
         <Plus class="w-4 h-4" />
@@ -144,17 +188,17 @@ const allPaid = computed(
             class="flex flex-col justify-center items-center gap-3 sm:col-span-2 py-16"
           >
             <div class="flex justify-center items-center bg-brand-soft rounded-full size-14">
-              <Search v-if="isSearchActive" class="size-7 text-brand" />
+              <Search v-if="isFilterActive" class="size-7 text-brand" />
               <InboxIcon v-else class="size-7 text-brand" />
             </div>
             <div class="text-center">
               <p class="font-medium text-foreground text-sm">
-                {{ isSearchActive ? 'Sin coincidencias' : 'No hay gastos este mes' }}
+                {{ isFilterActive ? 'Sin coincidencias' : 'No hay gastos este mes' }}
               </p>
               <p class="mx-auto mt-1 max-w-[32ch] text-muted-foreground text-xs">
                 {{
-                  isSearchActive
-                    ? 'Prueba con otro nombre o categoría'
+                  isFilterActive
+                    ? 'Prueba con otro día, nombre o categoría'
                     : 'Inicia el mes desde el Dashboard o agrega un gasto adicional.'
                 }}
               </p>
@@ -179,14 +223,14 @@ const allPaid = computed(
             v-if="visiblePending.length === 0"
             class="flex flex-col justify-center items-center gap-4 sm:col-span-2 py-16"
           >
-            <Search v-if="isSearchActive" class="w-10 h-10 text-muted-foreground" />
+            <Search v-if="isFilterActive" class="w-10 h-10 text-muted-foreground" />
             <CheckCircle2 v-else class="w-10 h-10 text-emerald-500" />
             <div class="text-center">
               <p class="font-medium text-foreground text-sm">
-                {{ isSearchActive ? 'Sin coincidencias' : '¡Sin pendientes!' }}
+                {{ isFilterActive ? 'Sin coincidencias' : '¡Sin pendientes!' }}
               </p>
               <p class="mt-1 text-muted-foreground text-xs">
-                {{ isSearchActive ? 'Prueba con otro nombre o categoría' : 'Todos los gastos están pagados' }}
+                {{ isFilterActive ? 'Prueba con otro día, nombre o categoría' : 'Todos los gastos están pagados' }}
               </p>
             </div>
           </div>
@@ -209,11 +253,16 @@ const allPaid = computed(
             v-if="visiblePaid.length === 0"
             class="flex flex-col justify-center items-center gap-4 sm:col-span-2 py-16"
           >
-            <Search v-if="isSearchActive" class="w-10 h-10 text-muted-foreground" />
+            <Search v-if="isFilterActive" class="w-10 h-10 text-muted-foreground" />
             <PackageOpen v-else class="w-10 h-10 text-muted-foreground" />
-            <p class="text-muted-foreground text-sm">
-              {{ isSearchActive ? 'Sin coincidencias' : 'No hay gastos pagados aún' }}
-            </p>
+            <div class="text-center">
+              <p class="font-medium text-foreground text-sm">
+                {{ isFilterActive ? 'Sin coincidencias' : 'No hay gastos pagados aún' }}
+              </p>
+              <p v-if="isFilterActive" class="mt-1 text-muted-foreground text-xs">
+                Prueba con otro día, nombre o categoría
+              </p>
+            </div>
           </div>
         </div>
       </TabsContent>
@@ -222,6 +271,7 @@ const allPaid = computed(
 
   <ManualExpenseFormSheet
     :open="manualExpenseSheetOpen"
+    :period-key="currentPeriod"
     @close="manualExpenseSheetOpen = false"
     @saved="handleManualExpenseSaved"
   />

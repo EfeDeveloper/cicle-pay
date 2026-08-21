@@ -15,9 +15,15 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import DueDayCalendar from '@/components/lists/DueDayCalendar.vue'
 import ListSearchBar from '@/components/lists/ListSearchBar.vue'
 import RecordDetailSheet from '@/components/records/RecordDetailSheet.vue'
 import { filterTemplates } from '@/lib/filterTemplates'
+import {
+  buildDueDayMarks,
+  filterByDueDay,
+  type DueDayFilter,
+} from '@/lib/dueDayCalendar'
 import { toTemplateDetail, type RecordDetail } from '@/lib/recordDetail'
 import { Plus } from '@lucide/vue'
 
@@ -30,15 +36,20 @@ onMounted(async () => {
 // ─── Tabs ─────────────────────────────────────────────────────────────────
 const activeTab = ref<'all' | 'active' | 'inactive'>('all')
 const searchQuery = ref('')
+const dueDayFilter = ref<DueDayFilter>(null)
 
-const filteredTemplates = computed(() => {
+const queriedTemplates = computed(() => {
   let list = store.templates
   if (activeTab.value === 'active') list = list.filter((t) => t.isActive)
   if (activeTab.value === 'inactive') list = list.filter((t) => !t.isActive)
   return filterTemplates(list, searchQuery.value)
 })
 
-const isSearchActive = computed(() => searchQuery.value.trim().length > 0)
+const dueDayMarks = computed(() => buildDueDayMarks(queriedTemplates.value, 'presence'))
+const hasUndated = computed(() => queriedTemplates.value.some((item) => item.dueDay == null))
+const filteredTemplates = computed(() => filterByDueDay(queriedTemplates.value, dueDayFilter.value))
+
+const isFilterActive = computed(() => searchQuery.value.trim().length > 0 || dueDayFilter.value !== null)
 const activeCount = computed(() => store.templates.filter((template) => template.isActive).length)
 const inactiveCount = computed(() => store.templates.length - activeCount.value)
 
@@ -106,11 +117,18 @@ async function handleToggle(id: string, isActive: boolean) {
       <p class="font-medium text-muted-foreground text-xs uppercase tracking-wide">Recurrentes</p>
       <h2 class="font-bold text-foreground text-2xl tracking-tight">Plantillas</h2>
     </div>
-    <div class="flex sm:flex-row flex-col sm:items-center gap-3">
+    <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
       <ListSearchBar
         id="template-search"
         v-model="searchQuery"
         aria-label="Buscar plantillas"
+      />
+      <DueDayCalendar
+        v-if="!store.loading && store.templates.length > 0"
+        v-model="dueDayFilter"
+        :marks="dueDayMarks"
+        mode="presence"
+        :has-undated="hasUndated"
       />
       <Button size="sm" @click="openCreate" class="gap-1.5 sm:shrink-0">
         <Plus class="w-4 h-4" />
@@ -150,7 +168,7 @@ async function handleToggle(id: string, isActive: boolean) {
         <TemplatesTabContent
           :loading="store.loading"
           :templates="filteredTemplates"
-          :search-active="isSearchActive"
+          :search-active="isFilterActive"
           @edit="openEdit"
           @delete="confirmDelete"
           @toggle="handleToggle"
@@ -161,7 +179,7 @@ async function handleToggle(id: string, isActive: boolean) {
         <TemplatesTabContent
           :loading="store.loading"
           :templates="filteredTemplates"
-          :search-active="isSearchActive"
+          :search-active="isFilterActive"
           @edit="openEdit"
           @delete="confirmDelete"
           @toggle="handleToggle"
@@ -172,7 +190,7 @@ async function handleToggle(id: string, isActive: boolean) {
         <TemplatesTabContent
           :loading="store.loading"
           :templates="filteredTemplates"
-          :search-active="isSearchActive"
+          :search-active="isFilterActive"
           @edit="openEdit"
           @delete="confirmDelete"
           @toggle="handleToggle"
@@ -267,7 +285,7 @@ const TemplatesTabContent = defineComponent({
                 'p',
                 { class: 'text-xs text-muted-foreground mt-1' },
                 props.searchActive
-                  ? 'Prueba con otro nombre o categoría'
+                  ? 'Prueba con otro día, nombre o categoría'
                   : 'Crea plantillas para generar gastos automáticamente cada mes',
               ),
             ]),

@@ -27,6 +27,15 @@ const emit = defineEmits<{
 
 const icon = computed(() => (props.record ? getCategoryIcon(props.record.category) : null))
 
+const previewDescription = computed(() => {
+  const record = props.record
+  if (!record) return ''
+  if (record.kind === 'template') {
+    return `Vista previa de la plantilla ${record.name}, categoría ${record.category}`
+  }
+  return `Vista previa del gasto ${record.name}, categoría ${record.category}`
+})
+
 const paidAtLabel = computed(() => {
   const paidAt = props.record?.paidAt
   if (!paidAt || typeof paidAt !== 'object' || !('toDate' in paidAt)) {
@@ -55,7 +64,7 @@ const paidAtLabel = computed(() => {
     >
       <SheetHeader>
         <SheetTitle class="pr-8">{{ record.name }}</SheetTitle>
-        <SheetDescription>Vista de solo lectura</SheetDescription>
+        <SheetDescription class="sr-only">{{ previewDescription }}</SheetDescription>
       </SheetHeader>
 
       <div class="flex-1 space-y-5 px-2 sm:px-3 py-6 min-h-0 overflow-y-auto overscroll-contain">

@@ -5,30 +5,41 @@ import { usePeriod } from '@/composables/usePeriod'
 import { formatCurrency } from '@/services/expenseService'
 import type { MonthlyExpense } from '@/types/expense'
 import ExpenseHistoryItem from '@/components/expenses/ExpenseHistoryItem.vue'
+import DueDayCalendar from '@/components/lists/DueDayCalendar.vue'
 import ListSearchBar from '@/components/lists/ListSearchBar.vue'
 import RecordDetailSheet from '@/components/records/RecordDetailSheet.vue'
 import { expenseQueryFields, filterByQuery } from '@/lib/filterByQuery'
+import {
+  buildDueDayMarks,
+  filterByDueDay,
+  type DueDayFilter,
+} from '@/lib/dueDayCalendar'
 import { toExpenseDetail, type RecordDetail } from '@/lib/recordDetail'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { CalendarX2, ChevronLeft, ChevronRight, Search } from '@lucide/vue'
+import { CalendarX2, Search } from '@lucide/vue'
 
 const store = useExpenseStore()
-const { currentPeriod, prevPeriod, nextPeriod, isCurrentPeriod, periodLabel } = usePeriod()
+const { currentPeriod, setPeriod, periodLabel } = usePeriod()
+const ready = ref(false)
 
 // Load expenses when period changes
+const searchQuery = ref('')
+const dueDayFilter = ref<DueDayFilter>(null)
+
 watch(
   currentPeriod,
   async (period) => {
+    dueDayFilter.value = null
     await store.fetchExpenses(period)
+    ready.value = true
   },
   { immediate: true },
 )
 
-const searchQuery = ref('')
 const isSearchActive = computed(() => searchQuery.value.trim().length > 0)
+const isFilterActive = computed(() => isSearchActive.value || dueDayFilter.value !== null)
 const detailOpen = ref(false)
 const detailRecord = ref<RecordDetail | null>(null)
 
@@ -37,36 +48,78 @@ function openExpenseDetail(expense: MonthlyExpense) {
   detailOpen.value = true
 }
 
-const visibleExpenses = computed(() =>
+const queriedExpenses = computed(() =>
   filterByQuery(store.expenses, searchQuery.value, expenseQueryFields),
 )
+const dueDayMarks = computed(() => buildDueDayMarks(queriedExpenses.value, 'status'))
+const hasUndated = computed(() => queriedExpenses.value.some((item) => item.dueDay == null))
+const visibleExpenses = computed(() => filterByDueDay(queriedExpenses.value, dueDayFilter.value))
 
 const progressValue = computed(() => {
   if (store.summary.totalCount === 0) return 0
   return Math.round((store.summary.paidCount / store.summary.totalCount) * 100)
 })
+
+const isMonthHeading = computed(
+  () => dueDayFilter.value === null || dueDayFilter.value === 'none',
+)
+
+const historyHeading = computed(() => {
+  const filter = dueDayFilter.value
+  if (filter === null || filter === 'none') return periodLabel.value
+
+  const [year, month] = currentPeriod.value.split('-').map(Number)
+  const lastDay = new Date(year, month, 0).getDate()
+  if (filter > lastDay) return `Día ${filter} · ${periodLabel.value}`
+
+  return new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(year, month - 1, filter))
+})
 </script>
 
 <template>
   <div class="space-y-5 mx-auto p-4 md:p-8 max-w-5xl">
-    <!-- Period selector -->
-    <div class="flex items-center justify-between">
-      <Button variant="outline" size="icon" @click="prevPeriod">
-        <ChevronLeft class="w-4 h-4" />
-      </Button>
-      <h2 class="font-semibold text-foreground text-xl capitalize tracking-tight">{{ periodLabel }}</h2>
-      <Button variant="outline" size="icon" :disabled="isCurrentPeriod" @click="nextPeriod">
-        <ChevronRight class="w-4 h-4" />
-      </Button>
-    </div>
+    <h2
+      class="text-left font-semibold text-foreground text-xl tracking-tight"
+      :class="{ capitalize: isMonthHeading }"
+    >
+      {{ historyHeading }}
+    </h2>
 
     <!-- Period summary bar -->
-    <div v-if="store.loading" class="space-y-2">
+    <div v-if="store.loading && !ready" class="space-y-2">
       <Skeleton class="rounded-2xl h-20" />
       <Skeleton class="rounded-full h-3" />
     </div>
 
-    <div v-else-if="store.expenses.length > 0" class="space-y-4">
+    <template v-else-if="ready">
+      <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+        <ListSearchBar
+          id="history-search"
+          v-model="searchQuery"
+          aria-label="Buscar en el historial"
+        />
+        <DueDayCalendar
+          v-model="dueDayFilter"
+          :period-key="currentPeriod"
+          :marks="dueDayMarks"
+          mode="status"
+          :has-undated="hasUndated"
+          allow-period-change
+          :disabled="store.loading"
+          @update:period-key="setPeriod"
+        />
+      </div>
+
+      <div v-if="store.loading" class="space-y-2">
+        <Skeleton class="rounded-2xl h-20" />
+        <Skeleton class="rounded-full h-3" />
+      </div>
+
+      <div v-else-if="store.expenses.length > 0" class="space-y-4">
       <!-- Summary card -->
       <Card>
         <CardHeader class="pb-3">
@@ -105,12 +158,6 @@ const progressValue = computed(() => {
         </CardContent>
       </Card>
 
-      <ListSearchBar
-        id="history-search"
-        v-model="searchQuery"
-        aria-label="Buscar en el historial"
-      />
-
       <!-- Expense list (read-only) -->
       <div class="gap-3 grid grid-cols-1 sm:grid-cols-2">
         <ExpenseHistoryItem
@@ -128,29 +175,29 @@ const progressValue = computed(() => {
           </div>
           <div class="text-center">
             <p class="text-sm font-medium text-foreground">
-              {{ isSearchActive ? 'Sin coincidencias' : 'Sin registros en este período' }}
+              {{ isFilterActive ? 'Sin coincidencias' : 'Sin registros en este período' }}
             </p>
-            <p v-if="isSearchActive" class="text-xs text-muted-foreground mt-1">
-              Prueba con otro nombre o categoría
+            <p v-if="isFilterActive" class="text-xs text-muted-foreground mt-1">
+              Prueba con otro día, nombre o categoría
             </p>
           </div>
         </div>
       </div>
-    </div>
+      </div>
 
-    <!-- Empty state -->
-    <div
-      v-else-if="!store.loading"
-      class="flex flex-col items-center justify-center py-16 gap-4"
-    >
-      <div class="flex justify-center items-center bg-brand-soft rounded-full size-14">
-        <CalendarX2 class="size-7 text-brand" />
+      <div
+        v-else
+        class="flex flex-col items-center justify-center py-16 gap-4"
+      >
+        <div class="flex justify-center items-center bg-brand-soft rounded-full size-14">
+          <CalendarX2 class="size-7 text-brand" />
+        </div>
+        <div class="text-center">
+          <p class="text-sm font-medium text-foreground">Sin registros en este período</p>
+          <p class="text-xs text-muted-foreground mt-1 capitalize">{{ periodLabel }}</p>
+        </div>
       </div>
-      <div class="text-center">
-        <p class="text-sm font-medium text-foreground">Sin registros en este período</p>
-        <p class="text-xs text-muted-foreground mt-1 capitalize">{{ periodLabel }}</p>
-      </div>
-    </div>
+    </template>
 
     <RecordDetailSheet
       :open="detailOpen"

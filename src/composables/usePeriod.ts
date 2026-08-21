@@ -21,6 +21,11 @@ export function usePeriod(initialPeriod?: string) {
     }
   }
 
+  function setPeriod(period: string) {
+    if (period > todayPeriod) return
+    currentPeriod.value = period
+  }
+
   const isCurrentPeriod = computed(() => currentPeriod.value === todayPeriod)
 
   const periodLabel = computed(() => formatPeriodLabel(currentPeriod.value))
@@ -29,6 +34,7 @@ export function usePeriod(initialPeriod?: string) {
     currentPeriod,
     prevPeriod,
     nextPeriod,
+    setPeriod,
     isCurrentPeriod,
     periodLabel,
   }
