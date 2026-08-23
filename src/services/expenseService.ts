@@ -400,3 +400,79 @@ export function formatCurrency(amount: number): string {
     minimumFractionDigits: 2,
   }).format(amount)
 }
+
+export interface PeriodHistoryPoint {
+  periodKey: string
+  label: string
+  paidAmount: number
+  totalAmount: number
+  paidCount: number
+  totalCount: number
+  heightPercent: number
+}
+
+export async function getRecentPeriodsHistory(
+  currentPeriodKey: string,
+  monthsCount = 6,
+): Promise<PeriodHistoryPoint[]> {
+  const uid = requireAuthUserId()
+  const currentDate = parseISO(`${currentPeriodKey}-01`)
+  const periodKeys: string[] = []
+
+  for (let i = monthsCount - 1; i >= 0; i--) {
+    const d = subMonths(currentDate, i)
+    periodKeys.push(format(d, 'yyyy-MM'))
+  }
+
+  try {
+    const q = query(userExpensesCol(uid), where('periodKey', 'in', periodKeys))
+    const snapshot = await getDocs(q)
+    const allExpenses = snapshot.docs.map((d) => {
+      const data = d.data()
+      return {
+        ...data,
+        amount: normalizeLegacyAmount(data.amount),
+        status: normalizeLegacyStatus(data.status),
+      } as MonthlyExpense
+    })
+
+    return periodKeys.map((pKey) => {
+      const d = parseISO(`${pKey}-01`)
+      const rawLabel = format(d, 'MMM', { locale: es })
+      const label = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1).replace('.', '')
+
+      const monthExpenses = allExpenses.filter((e) => e.periodKey === pKey)
+      const paidExpenses = monthExpenses.filter((e) => e.status === 'paid')
+      const paidAmount = paidExpenses.reduce((sum, e) => sum + e.amount, 0)
+      const totalAmount = monthExpenses.reduce((sum, e) => sum + e.amount, 0)
+
+      const heightPercent = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0
+
+      return {
+        periodKey: pKey,
+        label,
+        paidAmount,
+        totalAmount,
+        paidCount: paidExpenses.length,
+        totalCount: monthExpenses.length,
+        heightPercent,
+      }
+    })
+  } catch {
+    return periodKeys.map((pKey) => {
+      const d = parseISO(`${pKey}-01`)
+      const rawLabel = format(d, 'MMM', { locale: es })
+      const label = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1).replace('.', '')
+      return {
+        periodKey: pKey,
+        label,
+        paidAmount: 0,
+        totalAmount: 0,
+        paidCount: 0,
+        totalCount: 0,
+        heightPercent: 0,
+      }
+    })
+  }
+}
+

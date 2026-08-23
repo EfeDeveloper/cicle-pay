@@ -59,6 +59,52 @@ service cloud.firestore {
         && isValidDueDay(data);
     }
 
+    function isPositiveCap(value) {
+      return (value is int || value is float) && value > 0;
+    }
+
+    function capOk(cats, name) {
+      return !(name in cats) || isPositiveCap(cats.get(name, 0));
+    }
+
+    function isValidCategoryCaps(data) {
+      return !('categories' in data)
+        || (
+          data.categories is map
+          && data.categories.size() > 0
+          && data.categories.keys().hasOnly([
+            'Vivienda',
+            'Servicios',
+            'Alimentación',
+            'Transporte',
+            'Salud',
+            'Educación',
+            'Entretenimiento',
+            'Seguros',
+            'Suscripciones',
+            'Otros'
+          ])
+          && capOk(data.categories, 'Vivienda')
+          && capOk(data.categories, 'Servicios')
+          && capOk(data.categories, 'Alimentación')
+          && capOk(data.categories, 'Transporte')
+          && capOk(data.categories, 'Salud')
+          && capOk(data.categories, 'Educación')
+          && capOk(data.categories, 'Entretenimiento')
+          && capOk(data.categories, 'Seguros')
+          && capOk(data.categories, 'Suscripciones')
+          && capOk(data.categories, 'Otros')
+        );
+    }
+
+    function isValidBudget(data, periodKey) {
+      return isOwner(data)
+        && data.periodKey == periodKey
+        && isValidPeriodKey(data.periodKey)
+        && isValidAmount(data.totalAmount)
+        && isValidCategoryCaps(data);
+    }
+
     match /payment_cycles/{userId} {
       allow read, write: if false;
 
@@ -84,6 +130,17 @@ service cloud.firestore {
           && isOwner(request.resource.data)
           && isValidMonthlyExpense(request.resource.data);
         allow delete: if isPathOwner(userId);
+      }
+
+      match /budgets/{periodKey} {
+        allow read: if isPathOwner(userId);
+        allow create: if isPathOwner(userId)
+          && isValidBudget(request.resource.data, periodKey);
+        allow update: if isPathOwner(userId)
+          && isOwner(resource.data)
+          && isValidBudget(request.resource.data, periodKey);
+        allow delete: if isPathOwner(userId)
+          && isOwner(resource.data);
       }
     }
 
