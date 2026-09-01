@@ -7,6 +7,7 @@ import {
   getCurrentPeriodKey,
   createManualExpense,
 } from '@/services/expenseService'
+import { sortMonthlyExpenses } from '@/lib/expenseOrder'
 import type { CreateManualExpenseInput, MonthlyExpense, PeriodSummary } from '@/types/expense'
 import { toast } from 'vue-sonner'
 
@@ -92,9 +93,7 @@ export const useExpenseStore = defineStore('expenses', () => {
       if (createdExpense.periodKey !== currentPeriod.value) {
         await fetchExpenses(createdExpense.periodKey)
       } else {
-        expenses.value = [...expenses.value, createdExpense].sort((a, b) =>
-          a.name.localeCompare(b.name, 'es'),
-        )
+        expenses.value = sortMonthlyExpenses([...expenses.value, createdExpense])
       }
 
       toast.success('Gasto adicional guardado')

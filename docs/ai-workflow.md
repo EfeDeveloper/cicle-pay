@@ -45,7 +45,7 @@ No crees un wrapper tipo `editors/` + `app/`. Cursor, Copilot y OpenSpec buscan 
 1. `/opsx-explore` si el problema está borroso.
 2. `/opsx-propose` para artifacts (sin código).
 3. Revisar proposal/specs/design/tasks.
-4. `/opsx-apply` — invoca roles solo si el change los necesita. Con UI, `qa-tester` usa Playwright MCP (lote MUST-fix, PREGUNTAR al usuario, máx. 3 pasadas).
+4. `/opsx-apply` — invoca roles solo si el change los necesita. Con UI, `qa-tester` usa Playwright CLI (lote MUST-fix, PREGUNTAR al usuario, máx. 3 pasadas).
 5. `/opsx-archive` cuando las tasks están hechas y las specs main al día.
 
 ## Por qué no hay Director

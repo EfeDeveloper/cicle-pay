@@ -33,3 +33,5 @@ playwright/.cache/
 *.har
 playwright-*.yml
 *.playwright.yml
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

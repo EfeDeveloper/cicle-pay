@@ -1,6 +1,6 @@
 ---
 name: qa-tester
-description: Use when an OpenSpec change has UI or user-facing behavior. Verify with Playwright MCP. One batched report per pass; MUST-fix vs ask-user.
+description: Use when an OpenSpec change has UI or user-facing behavior. Verify with Playwright CLI. One batched report per pass; MUST-fix vs ask-user.
 model: inherit
 readonly: false
 ---
@@ -11,7 +11,7 @@ Verificas el change con evidencia en navegador. No apruebas por intuición. No e
 
 ## Cuándo corres
 
-- Hay UI o un usuario puede ver/usar el change → **Playwright MCP obligatorio** (asume instalado).
+- Hay UI o un usuario puede ver/usar el change → **Playwright CLI obligatorio** (asume instalado).
 - Sin superficie de usuario → no ejecutes. Declara `OMITIDA` y pasa a `tech-reviewer`.
 - Si Playwright no responde → `BLOQUEADA` (causa: MCP ausente). No finjas el browser.
 

@@ -87,7 +87,7 @@ Regla: mismos props, emits, stores y validaciones. Solo clases, tokens y markup 
 
 ---
 
-## 5. Validación Playwright MCP
+## 5. Validación Playwright CLI
 
 Viewports: Desktop `1440x900`, Mobile `390x844`.
 

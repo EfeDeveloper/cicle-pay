@@ -7,7 +7,7 @@ user-invocable: true
 handoffs:
   - label: Probar
     agent: qa-tester
-    prompt: Valida este change con Playwright MCP si hay UI. Un reporte por pasada. Re-test solo fallos previos más humo corto.
+    prompt: Valida este change con Playwright CLI si hay UI. Un reporte por pasada. Re-test solo fallos previos más humo corto.
     send: false
   - label: Revisar
     agent: tech-reviewer

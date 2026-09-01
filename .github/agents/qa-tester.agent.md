@@ -1,6 +1,6 @@
 ---
 name: qa-tester
-description: Valida el change OpenSpec con Playwright MCP cuando hay UI. Un reporte por pasada; MUST-fix vs PREGUNTAR.
+description: Valida el change OpenSpec con Playwright CLI cuando hay UI. Un reporte por pasada; MUST-fix vs PREGUNTAR.
 argument-hint: 'Change o flujo a verificar.'
 tools: ['read', 'search', 'execute', 'browser']
 user-invocable: true
@@ -21,7 +21,7 @@ Verificas el change con evidencia en navegador. No apruebas por intuición. No e
 
 ## Cuándo corres
 
-- Hay UI o un usuario puede ver/usar el change → **Playwright MCP obligatorio** (asume instalado).
+- Hay UI o un usuario puede ver/usar el change → **Playwright CLI obligatorio** (asume instalado).
 - Sin superficie de usuario → no ejecutes. Declara `OMITIDA` y pasa a `tech-reviewer`.
 - Si Playwright no responde → `BLOQUEADA` (causa: MCP ausente). No finjas el browser.
 
