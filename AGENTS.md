@@ -27,7 +27,7 @@ En Cursor los commands están en `.cursor/commands/`. En VS Code Copilot, los pr
 |-----|--------|
 | `ui-designer` | El change toca UI. No escribe código. |
 | `developer` | Hay tasks de implementación. |
-| `qa-tester` | El change tiene UI. Playwright MCP. Un reporte por pasada; MUST-fix vs PREGUNTAR. |
+| `qa-tester` | El change tiene UI. Playwright CLI. Un reporte por pasada; MUST-fix vs PREGUNTAR. |
 | `tech-reviewer` | Al cerrar apply, con pruebas verdes o omitidas. Una vez. |
 
 Copilot: `.github/agents/*.agent.md`. Cursor: `.cursor/agents/*.md`. Mismo oficio, frontmatter distinto.

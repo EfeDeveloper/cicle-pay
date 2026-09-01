@@ -21,4 +21,4 @@
 
 - [x] 4.1 Confirmar que `expenseService` / `expenseStore` no consultan presupuesto al crear, editar o marcar pagado. Verificar: grep sin imports de budget en esos archivos; un gasto extra se guarda con el mes ya pasado de tope.
 - [x] 4.2 `vue-tsc -b` sin errores de este change. Verificar: el comando termina exitoso.
-- [x] 4.3 [qa] Playwright MCP: Dashboard sin presupuesto (CTA definir); guardar solo total; editar con cupo de una categoría; prefill si el mes previo tiene presupuesto; exceso visual sin bloquear marcar pagado; borrar presupuesto. Un reporte por pasada.
+- [x] 4.3 [qa] Playwright CLI: Dashboard sin presupuesto (CTA definir); guardar solo total; editar con cupo de una categoría; prefill si el mes previo tiene presupuesto; exceso visual sin bloquear marcar pagado; borrar presupuesto. Un reporte por pasada.

@@ -24,4 +24,4 @@
 
 ## 5. QA
 
-- [x] 5.1 [qa] Playwright MCP pass on Gastos, Historial, and Plantillas (desktop + mobile): trigger copy, popover, marks, month change, filter, clear, Sin día, empty month still has trigger, preview copy; report MUST-fix vs PREGUNTAR in one batch.
+- [x] 5.1 [qa] Playwright CLI pass on Gastos, Historial, and Plantillas (desktop + mobile): trigger copy, popover, marks, month change, filter, clear, Sin día, empty month still has trigger, preview copy; report MUST-fix vs PREGUNTAR in one batch.
