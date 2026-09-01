@@ -22,6 +22,10 @@ export const useExpenseStore = defineStore('expenses', () => {
 
   const pendingExpenses = computed(() => expenses.value.filter((e) => e.status === 'pending'))
 
+  const hasMonthInitializedFromTemplates = computed(() =>
+    expenses.value.some((e) => e.source !== 'manual'),
+  )
+
   const summary = computed<PeriodSummary>(() => {
     const paid = paidExpenses.value
     const pending = pendingExpenses.value
@@ -110,6 +114,7 @@ export const useExpenseStore = defineStore('expenses', () => {
     currentPeriod,
     paidExpenses,
     pendingExpenses,
+    hasMonthInitializedFromTemplates,
     summary,
     fetchExpenses,
     toggleStatus,

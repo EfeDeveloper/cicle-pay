@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useExpenseStore } from '@/stores/expenseStore'
+import { useTemplateStore } from '@/stores/templateStore'
 import { useBudgetStore } from '@/stores/budgetStore'
 import {
   getCurrentPeriodKey,
@@ -25,6 +26,7 @@ import type { SaveBudgetInput } from '@/types/budget'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { toast } from 'vue-sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,11 +40,11 @@ import {
 import { PackageOpen, Clock, RefreshCw, Smile } from '@lucide/vue'
 
 const store = useExpenseStore()
+const templateStore = useTemplateStore()
 const budgetStore = useBudgetStore()
 const period = getCurrentPeriodKey()
 const periodLabel = formatPeriodLabel(period)
 const ready = ref(false)
-const initMessage = ref<{ text: string; tone: 'info' | 'warning' } | null>(null)
 const detailOpen = ref(false)
 const detailRecord = ref<RecordDetail | null>(null)
 const sheetOpen = ref(false)
@@ -64,6 +66,7 @@ function openExpenseDetail(expense: MonthlyExpense) {
 onMounted(async () => {
   const [_, __, history] = await Promise.all([
     store.fetchExpenses(period).catch(() => undefined),
+    templateStore.fetchTemplates().catch(() => undefined),
     budgetStore.fetchBudget(period).catch(() => undefined),
     getRecentPeriodsHistory(period, 6).catch(() => []),
   ])
@@ -79,34 +82,29 @@ async function handleToggle(id: string, status: 'pending' | 'paid') {
 }
 
 async function handleInitMonth() {
+  if (templateStore.templates.length === 0) {
+    toast.warning('No tienes plantillas creadas. Ve a Plantillas para crear la base de tus gastos mensuales.')
+    return
+  }
+
   try {
     const result = await store.generateForPeriod(period)
 
     if (result.created === 0 && result.skipped === 0) {
-      initMessage.value = {
-        text: 'No hay plantillas activas. Crea o activa una plantilla para iniciar el mes.',
-        tone: 'info',
-      }
+      toast.info('No hay plantillas activas. Crea o activa una plantilla para iniciar el mes.')
       return
     }
 
     if (result.created === 0 && result.skipped > 0) {
-      initMessage.value = {
-        text: 'Este mes ya estaba iniciado.',
-        tone: 'warning',
-      }
+      toast.warning('Este mes ya estaba iniciado.')
       return
     }
-
-    initMessage.value = null
+    toast.success(`${result.created} gastos generados para el mes`)
     getRecentPeriodsHistory(period, 6).then((h) => {
       historyPoints.value = h
     }).catch(() => undefined)
   } catch {
-    initMessage.value = {
-      text: 'No se pudo iniciar el mes. Intenta nuevamente.',
-      tone: 'warning',
-    }
+    toast.error('No se pudo iniciar el mes. Intenta nuevamente.')
   }
 }
 
@@ -164,12 +162,16 @@ const variablePendingAmount = computed(() => {
     .filter((e) => e.source === 'manual' || !e.templateId)
     .reduce((sum, e) => sum + e.amount, 0)
 })
+
+const showInitMonthAction = computed(
+  () => ready.value && store.expenses.length > 0 && !store.hasMonthInitializedFromTemplates,
+)
 </script>
 
 <template>
   <div class="space-y-6 mx-auto p-4 md:p-8 max-w-6xl">
     <!-- Top Header: PERIODO ACTUAL / Agosto 2026 -->
-    <div class="flex items-end justify-between gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
       <div>
         <p class="font-medium text-neutral-400 dark:text-neutral-500 text-[11px] uppercase tracking-wider">
           PERIODO ACTUAL
@@ -178,6 +180,16 @@ const variablePendingAmount = computed(() => {
           {{ periodLabel }}
         </h2>
       </div>
+
+      <Button
+        v-if="showInitMonthAction"
+        :disabled="store.loading"
+        class="rounded-full px-5 bg-neutral-900 text-white hover:bg-neutral-800 self-start sm:self-auto"
+        @click="handleInitMonth"
+      >
+        <RefreshCw class="size-4" />
+        Iniciar mes
+      </Button>
     </div>
 
     <!-- Loading Skeleton -->
@@ -196,13 +208,6 @@ const variablePendingAmount = computed(() => {
     <div v-else class="space-y-6">
       <!-- Empty state when month has no expenses -->
       <template v-if="store.expenses.length === 0">
-        <HeroSpendCard
-          :spent="0"
-          :cap="budgetStore.budget?.totalAmount ?? null"
-          :period-label="periodLabel"
-          @open-budget="openBudgetSheet"
-        />
-
         <Card class="shadow-card mx-auto max-w-xl border border-border rounded-3xl">
           <CardContent class="flex flex-col items-center gap-4 py-12">
             <div class="flex justify-center items-center bg-brand-soft rounded-full size-14 text-brand">
@@ -211,11 +216,15 @@ const variablePendingAmount = computed(() => {
             <div class="text-center">
               <p class="font-semibold text-neutral-900 text-base">Sin gastos este mes</p>
               <p class="mx-auto mt-1 max-w-[32ch] text-neutral-500 text-sm">
-                Inicia el mes para generar los gastos desde tus plantillas activas.
+                Agrega un gasto adicional para que aparezca la acción de iniciar mes.
               </p>
             </div>
             <div class="flex flex-col items-center gap-2">
-              <Button @click="handleInitMonth" :disabled="store.loading" class="rounded-full px-5 bg-neutral-900 text-white hover:bg-neutral-800">
+              <Button
+                @click="handleInitMonth"
+                :disabled="store.loading"
+                class="rounded-full px-5 bg-neutral-900 text-white hover:bg-neutral-800"
+              >
                 <RefreshCw class="size-4" />
                 Iniciar mes
               </Button>
@@ -225,17 +234,6 @@ const variablePendingAmount = computed(() => {
               >
                 Ir a Plantillas →
               </RouterLink>
-            </div>
-            <div
-              v-if="initMessage"
-              :class="[
-                'w-full max-w-md rounded-full border px-3 py-2 text-xs text-center',
-                initMessage.tone === 'warning'
-                  ? 'border-amber-200 bg-amber-50 text-amber-700'
-                  : 'border-slate-200 bg-slate-50 text-slate-700',
-              ]"
-            >
-              {{ initMessage.text }}
             </div>
           </CardContent>
         </Card>
@@ -346,7 +344,7 @@ const variablePendingAmount = computed(() => {
             <!-- Empty state: All expenses paid / up to date matching right card height -->
             <div
               v-else
-              class="flex-1 flex flex-col items-center justify-center min-h-[200px] py-10 px-6 bg-card border border-border rounded-2xl md:rounded-3xl shadow-card gap-4 text-center"
+              class="flex-1 flex flex-col items-center justify-center min-h-50 py-10 px-6 bg-card border border-border rounded-2xl md:rounded-3xl shadow-card gap-4 text-center"
             >
               <div class="flex justify-center items-center bg-emerald-50 dark:bg-emerald-950/40 rounded-full size-18 md:size-20 text-emerald-600 dark:text-emerald-400 shadow-xs">
                 <Smile class="size-10 md:size-11 stroke-[1.75]" />
@@ -422,5 +420,6 @@ const variablePendingAmount = computed(() => {
       :record="detailRecord"
       @close="detailOpen = false"
     />
+
   </div>
 </template>
