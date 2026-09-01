@@ -15,6 +15,7 @@ import {
   type DocumentReference,
 } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
+import { sortMonthlyExpenses } from '@/lib/expenseOrder'
 import type { CreateManualExpenseInput, ExpenseTemplate, MonthlyExpense } from '@/types/expense'
 import { format, addMonths, subMonths, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -221,8 +222,7 @@ export async function getMonthlyExpenses(periodKey: string): Promise<MonthlyExpe
   const uid = requireAuthUserId()
   const q = query(userExpensesCol(uid), where('periodKey', '==', periodKey))
   const snapshot = await getDocs(q)
-  return snapshot.docs
-    .map((d) => {
+  const expenses = snapshot.docs.map((d) => {
       const data = d.data() as Omit<MonthlyExpense, 'id' | 'source'> & {
         source?: MonthlyExpense['source']
       }
@@ -244,7 +244,8 @@ export async function getMonthlyExpenses(periodKey: string): Promise<MonthlyExpe
         dueDay: normalizedDueDay,
       } as MonthlyExpense
     })
-    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+
+  return sortMonthlyExpenses(expenses)
 }
 
 export async function createManualExpense(input: CreateManualExpenseInput): Promise<MonthlyExpense> {
