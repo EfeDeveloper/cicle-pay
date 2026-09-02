@@ -14,7 +14,7 @@ export interface ExpenseTemplate {
 }
 
 export interface MonthlyExpense {
-  id: string           // Templates: `${templateId}_${periodKey}`; manual: Firestore auto ID
+  id: string           // Firestore auto ID for both template-generated and manual items
   userId?: string
   templateId?: string | null
   source: 'template' | 'manual'

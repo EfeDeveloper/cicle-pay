@@ -15,7 +15,9 @@ export const useExpenseStore = defineStore('expenses', () => {
   // ─── State ─────────────────────────────────────────────────────────────
   const expenses = ref<MonthlyExpense[]>([])
   const loading = ref(false)
+  const isGeneratingForPeriod = ref(false)
   const currentPeriod = ref(getCurrentPeriodKey())
+  let generateForPeriodPromise: Promise<{ created: number; skipped: number }> | null = null
 
   // ─── Getters ───────────────────────────────────────────────────────────
   const paidExpenses = computed(() => expenses.value.filter((e) => e.status === 'paid'))
@@ -63,7 +65,7 @@ export const useExpenseStore = defineStore('expenses', () => {
       expenses.value[idx] = { ...expenses.value[idx], status }
     }
     try {
-      await toggleExpenseStatus(id, status)
+      await toggleExpenseStatus(currentPeriod.value, id, status)
     } catch (e) {
       // Rollback on failure
       if (idx !== -1) {
@@ -76,6 +78,12 @@ export const useExpenseStore = defineStore('expenses', () => {
   }
 
   async function generateForPeriod(period: string) {
+    if (generateForPeriodPromise) {
+      return generateForPeriodPromise
+    }
+
+    isGeneratingForPeriod.value = true
+    generateForPeriodPromise = (async () => {
     try {
       const result = await generateMonthlyExpenses(period)
       if (result.created > 0) {
@@ -87,7 +95,13 @@ export const useExpenseStore = defineStore('expenses', () => {
     } catch (e) {
       toast.error('Error al generar gastos del mes')
       throw e
+    } finally {
+      isGeneratingForPeriod.value = false
+      generateForPeriodPromise = null
     }
+    })()
+
+    return generateForPeriodPromise
   }
 
   async function addManualExpense(payload: CreateManualExpenseInput) {
@@ -111,6 +125,7 @@ export const useExpenseStore = defineStore('expenses', () => {
   return {
     expenses,
     loading,
+    isGeneratingForPeriod,
     currentPeriod,
     paidExpenses,
     pendingExpenses,

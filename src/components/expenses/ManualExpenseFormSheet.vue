@@ -21,9 +21,11 @@ const props = withDefaults(
   defineProps<{
     open: boolean
     periodKey?: string
+    saving?: boolean
   }>(),
   {
     periodKey: undefined,
+    saving: false,
   },
 )
 
@@ -50,11 +52,24 @@ const errors = ref({
   category: '',
   periodKey: '',
 })
+const submitLocked = ref(false)
 
 watch(
   () => props.open,
   (open) => {
-    if (open) resetForm()
+    if (open) {
+      submitLocked.value = false
+      resetForm()
+    }
+  },
+)
+
+watch(
+  () => props.saving,
+  (saving) => {
+    if (!saving) {
+      submitLocked.value = false
+    }
   },
 )
 
@@ -129,7 +144,10 @@ function validate(): boolean {
 }
 
 function handleSave() {
+  if (props.saving || submitLocked.value) return
   if (!validate()) return
+
+  submitLocked.value = true
 
   const description = form.value.description.trim()
   const dueDay = form.value.dueDay === 'none' ? null : Number(form.value.dueDay)
@@ -196,9 +214,11 @@ function handleSave() {
 
       <SheetFooter class="pb-[max(1rem,env(safe-area-inset-bottom))] flex flex-row gap-2 shrink-0">
         <SheetClose as-child>
-          <Button variant="outline" class="flex-1" @click="emit('close')">Cancelar</Button>
+          <Button variant="outline" class="flex-1" :disabled="props.saving" @click="emit('close')">Cancelar</Button>
         </SheetClose>
-        <Button class="flex-1" @click="handleSave">Guardar gasto</Button>
+        <Button class="flex-1" :disabled="props.saving || submitLocked" @click="handleSave">
+          {{ props.saving ? 'Guardando...' : 'Guardar gasto' }}
+        </Button>
       </SheetFooter>
     </SheetContent>
   </Sheet>

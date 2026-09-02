@@ -50,6 +50,8 @@ const detailRecord = ref<RecordDetail | null>(null)
 const sheetOpen = ref(false)
 const deleteDialogOpen = ref(false)
 const historyPoints = ref<PeriodHistoryPoint[]>([])
+const initMonthSubmitting = ref(false)
+const initMonthLockedUntil = ref(0)
 
 const formDefaults = ref<BudgetFormDefaults>({
   totalAmount: null,
@@ -82,12 +84,18 @@ async function handleToggle(id: string, status: 'pending' | 'paid') {
 }
 
 async function handleInitMonth() {
-  if (templateStore.templates.length === 0) {
-    toast.warning('No tienes plantillas creadas. Ve a Plantillas para crear la base de tus gastos mensuales.')
-    return
-  }
+  const now = Date.now()
+  if (now < initMonthLockedUntil.value) return
+  if (initMonthSubmitting.value || store.isGeneratingForPeriod) return
 
+  initMonthLockedUntil.value = now + 800
+  initMonthSubmitting.value = true
   try {
+    if (templateStore.templates.length === 0) {
+      toast.warning('No tienes plantillas creadas. Ve a Plantillas para crear la base de tus gastos mensuales.')
+      return
+    }
+
     const result = await store.generateForPeriod(period)
 
     if (result.created === 0 && result.skipped === 0) {
@@ -105,6 +113,8 @@ async function handleInitMonth() {
     }).catch(() => undefined)
   } catch {
     toast.error('No se pudo iniciar el mes. Intenta nuevamente.')
+  } finally {
+    initMonthSubmitting.value = false
   }
 }
 
@@ -183,7 +193,7 @@ const showInitMonthAction = computed(
 
       <Button
         v-if="showInitMonthAction"
-        :disabled="store.loading"
+        :disabled="store.loading || store.isGeneratingForPeriod || initMonthSubmitting"
         class="rounded-full px-5 bg-neutral-900 text-white hover:bg-neutral-800 self-start sm:self-auto"
         @click="handleInitMonth"
       >
@@ -222,7 +232,7 @@ const showInitMonthAction = computed(
             <div class="flex flex-col items-center gap-2">
               <Button
                 @click="handleInitMonth"
-                :disabled="store.loading"
+                :disabled="store.loading || store.isGeneratingForPeriod || initMonthSubmitting"
                 class="rounded-full px-5 bg-neutral-900 text-white hover:bg-neutral-800"
               >
                 <RefreshCw class="size-4" />
