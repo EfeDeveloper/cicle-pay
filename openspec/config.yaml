@@ -18,12 +18,14 @@ context: |
   - ExpenseTemplate = recurring definition. Path:
     payment_cycles/{uid}/templates/{templateId}
   - MonthlyExpense = instance for one month. Path:
-    payment_cycles/{uid}/expenses/{expenseId}
+    payment_cycles/{uid}/expenses/{periodKey}/items/{expenseId}
   - Never mix the two. Never write the legacy collections
     expense_templates or monthly_expenses (rules deny them).
-  - Template-sourced instance id MUST be `${templateId}_${periodKey}`
-    (idempotent setDoc). Manual expenses use Firestore auto ids,
-    source: 'manual', templateId: null.
+  - MonthlyExpense documents under items use Firestore auto ids
+    (both template-sourced and manual).
+  - Template-sourced generation SHOULD skip creating another item in the
+    same period when one with the same templateId already exists.
+  - Manual expenses keep source: 'manual' and templateId: null.
   - periodKey format: YYYY-MM. status: pending | paid.
   - amount > 0. description optional, omit if empty (max 140 chars).
   - dueDay optional 1–31 or null.
