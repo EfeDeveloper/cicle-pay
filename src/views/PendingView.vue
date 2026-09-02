@@ -28,10 +28,13 @@ const templateStore = useTemplateStore()
 const { currentPeriod, setPeriod, isCurrentPeriod, periodLabel } = usePeriod()
 const ready = ref(false)
 const manualExpenseSheetOpen = ref(false)
+const manualExpenseSaving = ref(false)
 const searchQuery = ref('')
 const dueDayFilter = ref<DueDayFilter>(null)
 const detailOpen = ref(false)
 const detailRecord = ref<RecordDetail | null>(null)
+const initMonthSubmitting = ref(false)
+const initMonthLockedUntil = ref(0)
 
 function openExpenseDetail(expense: MonthlyExpense) {
   detailRecord.value = toExpenseDetail(expense)
@@ -55,17 +58,34 @@ async function handleToggle(id: string, status: 'pending' | 'paid') {
 }
 
 async function handleManualExpenseSaved(payload: CreateManualExpenseInput) {
-  await store.addManualExpense(payload)
-  manualExpenseSheetOpen.value = false
+  if (manualExpenseSaving.value) return
+
+  manualExpenseSaving.value = true
+  try {
+    await store.addManualExpense(payload)
+    manualExpenseSheetOpen.value = false
+  } finally {
+    manualExpenseSaving.value = false
+  }
 }
 
 async function handleInitMonth() {
-  if (templateStore.templates.length === 0) {
-    toast.warning('No tienes plantillas creadas. Ve a Plantillas para crear la base de tus gastos mensuales.')
-    return
-  }
+  const now = Date.now()
+  if (now < initMonthLockedUntil.value) return
+  if (initMonthSubmitting.value || store.isGeneratingForPeriod) return
 
-  await store.generateForPeriod(currentPeriod.value)
+  initMonthLockedUntil.value = now + 800
+  initMonthSubmitting.value = true
+  try {
+    if (templateStore.templates.length === 0) {
+      toast.warning('No tienes plantillas creadas. Ve a Plantillas para crear la base de tus gastos mensuales.')
+      return
+    }
+
+    await store.generateForPeriod(currentPeriod.value)
+  } finally {
+    initMonthSubmitting.value = false
+  }
 }
 
 const activeTab = ref<'all' | 'pending' | 'paid'>('all')
@@ -138,13 +158,18 @@ const allPaid = computed(
         v-if="showInitMonthAction"
         size="sm"
         class="gap-1.5 sm:shrink-0"
-        :disabled="store.loading"
+        :disabled="store.loading || store.isGeneratingForPeriod || initMonthSubmitting"
         @click="handleInitMonth"
       >
         <RefreshCw class="w-4 h-4" />
         Iniciar mes
       </Button>
-      <Button size="sm" class="gap-1.5 sm:shrink-0" @click="manualExpenseSheetOpen = true">
+      <Button
+        size="sm"
+        class="gap-1.5 sm:shrink-0"
+        :disabled="manualExpenseSaving"
+        @click="manualExpenseSheetOpen = true"
+      >
         <Plus class="w-4 h-4" />
         Agregar gasto adicional
       </Button>
@@ -298,6 +323,7 @@ const allPaid = computed(
 
   <ManualExpenseFormSheet
     :open="manualExpenseSheetOpen"
+    :saving="manualExpenseSaving"
     :period-key="currentPeriod"
     @close="manualExpenseSheetOpen = false"
     @saved="handleManualExpenseSaved"

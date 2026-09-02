@@ -8,7 +8,6 @@ import {
   deleteDoc,
   query,
   where,
-  setDoc,
   Timestamp,
   serverTimestamp,
   deleteField,
@@ -26,16 +25,16 @@ function userTemplatesCol(uid: string) {
   return collection(db, PAYMENT_CYCLES_COL, uid, 'templates')
 }
 
-function userExpensesCol(uid: string) {
-  return collection(db, PAYMENT_CYCLES_COL, uid, 'expenses')
+function userExpenseItemsCol(uid: string, periodKey: string) {
+  return collection(db, PAYMENT_CYCLES_COL, uid, 'expenses', periodKey, 'items')
 }
 
 function userTemplateDoc(uid: string, id: string) {
   return doc(db, PAYMENT_CYCLES_COL, uid, 'templates', id)
 }
 
-function userExpenseDoc(uid: string, id: string) {
-  return doc(db, PAYMENT_CYCLES_COL, uid, 'expenses', id)
+function userExpenseItemDoc(uid: string, periodKey: string, id: string) {
+  return doc(db, PAYMENT_CYCLES_COL, uid, 'expenses', periodKey, 'items', id)
 }
 
 function requireAuthUserId(): string {
@@ -219,9 +218,12 @@ export async function toggleTemplate(id: string, isActive: boolean): Promise<voi
 // ─── MONTHLY EXPENSES ──────────────────────────────────────────────────────
 
 export async function getMonthlyExpenses(periodKey: string): Promise<MonthlyExpense[]> {
+  if (!isValidPeriodKey(periodKey)) {
+    throw new Error('El período debe tener formato YYYY-MM.')
+  }
+
   const uid = requireAuthUserId()
-  const q = query(userExpensesCol(uid), where('periodKey', '==', periodKey))
-  const snapshot = await getDocs(q)
+  const snapshot = await getDocs(userExpenseItemsCol(uid, periodKey))
   const expenses = snapshot.docs.map((d) => {
       const data = d.data() as Omit<MonthlyExpense, 'id' | 'source'> & {
         source?: MonthlyExpense['source']
@@ -293,7 +295,7 @@ export async function createManualExpense(input: CreateManualExpenseInput): Prom
     ...(status === 'paid' ? { paidAt: Timestamp.now() } : {}),
   }
 
-  const ref = await addDoc(userExpensesCol(uid), expensePayload)
+  const ref = await addDoc(userExpenseItemsCol(uid, input.periodKey), expensePayload)
 
   return {
     id: ref.id,
@@ -306,15 +308,19 @@ export async function createManualExpense(input: CreateManualExpenseInput): Prom
  * Uses atomic update: if marking as paid → stores paidAt timestamp.
  */
 export async function toggleExpenseStatus(
+  periodKey: string,
   id: string,
   status: 'pending' | 'paid',
 ): Promise<void> {
   if (!isValidExpenseStatus(status)) {
     throw new Error("El estado debe ser 'pending' o 'paid'.")
   }
+  if (!isValidPeriodKey(periodKey)) {
+    throw new Error('El período debe tener formato YYYY-MM.')
+  }
 
   const uid = requireAuthUserId()
-  const ref = userExpenseDoc(uid, id)
+  const ref = userExpenseItemDoc(uid, periodKey, id)
   await assertUserDocExists(ref)
 
   const data: Record<string, unknown> = { status }
@@ -329,8 +335,9 @@ export async function toggleExpenseStatus(
 /**
  * Generate monthly expenses for a given period from active templates.
  *
- * GOLDEN RULE: Uses setDoc with ID `${templateId}_${periodKey}` for idempotence.
- * Calling this function twice for the same month will NOT create duplicates.
+ * Uses Firebase auto IDs for generated items.
+ * Duplicate generation in the same period is prevented by checking
+ * existing template-sourced items by templateId before creating new ones.
  *
  * @param periodKey - Format "YYYY-MM"
  * @returns { created, skipped } counts
@@ -338,6 +345,10 @@ export async function toggleExpenseStatus(
 export async function generateMonthlyExpenses(
   periodKey: string,
 ): Promise<{ created: number; skipped: number }> {
+  if (!isValidPeriodKey(periodKey)) {
+    throw new Error('El período debe tener formato YYYY-MM.')
+  }
+
   const uid = requireAuthUserId()
   // 1. Get all active templates
   const templatesQuery = query(userTemplatesCol(uid), where('isActive', '==', true))
@@ -349,16 +360,18 @@ export async function generateMonthlyExpenses(
 
   // 2. Check which expenses already exist for this period
   const existingExpenses = await getMonthlyExpenses(periodKey)
-  const existingIds = new Set(existingExpenses.map((e) => e.id))
+  const existingTemplateIds = new Set(
+    existingExpenses
+      .filter((e) => e.source === 'template' && typeof e.templateId === 'string')
+      .map((e) => e.templateId as string),
+  )
 
   let created = 0
   let skipped = 0
 
-  // 3. For each active template, setDoc with deterministic ID
+  // 3. For each active template, create a new item with Firebase auto ID
   for (const template of templates) {
-    const expenseId = `${template.id}_${periodKey}`
-
-    if (existingIds.has(expenseId)) {
+    if (existingTemplateIds.has(template.id)) {
       skipped++
       continue
     }
@@ -386,7 +399,7 @@ export async function generateMonthlyExpenses(
       expense.dueDay = dueDay
     }
 
-    await setDoc(userExpenseDoc(uid, expenseId), expense)
+    await addDoc(userExpenseItemsCol(uid, periodKey), expense)
     created++
   }
 
@@ -416,6 +429,10 @@ export async function getRecentPeriodsHistory(
   currentPeriodKey: string,
   monthsCount = 6,
 ): Promise<PeriodHistoryPoint[]> {
+  if (!isValidPeriodKey(currentPeriodKey)) {
+    throw new Error('El período debe tener formato YYYY-MM.')
+  }
+
   const uid = requireAuthUserId()
   const currentDate = parseISO(`${currentPeriodKey}-01`)
   const periodKeys: string[] = []
@@ -426,16 +443,22 @@ export async function getRecentPeriodsHistory(
   }
 
   try {
-    const q = query(userExpensesCol(uid), where('periodKey', 'in', periodKeys))
-    const snapshot = await getDocs(q)
-    const allExpenses = snapshot.docs.map((d) => {
-      const data = d.data()
-      return {
-        ...data,
-        amount: normalizeLegacyAmount(data.amount),
-        status: normalizeLegacyStatus(data.status),
-      } as MonthlyExpense
-    })
+    const snapshots = await Promise.all(periodKeys.map((pKey) => getDocs(userExpenseItemsCol(uid, pKey))))
+    const allExpenses = snapshots.flatMap((snapshot, index) =>
+      snapshot.docs.map((d) => {
+        const data = d.data()
+        return {
+          id: d.id,
+          ...data,
+          periodKey: periodKeys[index],
+          amount: normalizeLegacyAmount(data.amount),
+          status: normalizeLegacyStatus(data.status),
+          source: normalizeLegacySource((data as Record<string, unknown>).source),
+          description: normalizeDescription((data as Record<string, unknown>).description),
+          dueDay: normalizeDueDay((data as Record<string, unknown>).dueDay),
+        } as MonthlyExpense
+      }),
+    )
 
     return periodKeys.map((pKey) => {
       const d = parseISO(`${pKey}-01`)

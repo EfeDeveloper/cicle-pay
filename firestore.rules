@@ -40,10 +40,11 @@ service cloud.firestore {
         || (data.dueDay is int && data.dueDay >= 1 && data.dueDay <= 31);
     }
 
-    function isValidMonthlyExpense(data) {
+    function isValidMonthlyExpense(data, periodKey) {
       return isValidStatus(data.status)
         && isValidSource(data.source)
         && isValidPeriodKey(data.periodKey)
+        && data.periodKey == periodKey
         && isValidAmount(data.amount)
         && isValidDescription(data)
         && isValidDueDay(data)
@@ -120,16 +121,21 @@ service cloud.firestore {
         allow delete: if isPathOwner(userId);
       }
 
-      match /expenses/{expenseId} {
+      match /expenses/{periodKey} {
+        allow read: if isPathOwner(userId);
+        allow create, update, delete: if false;
+
+        match /items/{expenseId} {
         allow read: if isPathOwner(userId);
         allow create: if isPathOwner(userId)
           && isOwner(request.resource.data)
-          && isValidMonthlyExpense(request.resource.data);
+          && isValidMonthlyExpense(request.resource.data, periodKey);
         allow update: if isPathOwner(userId)
           && isOwner(resource.data)
           && isOwner(request.resource.data)
-          && isValidMonthlyExpense(request.resource.data);
+          && isValidMonthlyExpense(request.resource.data, periodKey);
         allow delete: if isPathOwner(userId);
+        }
       }
 
       match /budgets/{periodKey} {
