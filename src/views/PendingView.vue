@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { watch, computed, ref } from 'vue'
 import { useExpenseStore } from '@/stores/expenseStore'
+import { useTemplateStore } from '@/stores/templateStore'
 import { usePeriod } from '@/composables/usePeriod'
 import type { CreateManualExpenseInput, MonthlyExpense } from '@/types/expense'
 import ExpenseListItem from '@/components/expenses/ExpenseListItem.vue'
@@ -19,9 +20,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, PackageOpen, InboxIcon, Plus, Search } from '@lucide/vue'
+import { toast } from 'vue-sonner'
+import { CheckCircle2, PackageOpen, InboxIcon, Plus, RefreshCw, Search } from '@lucide/vue'
 
 const store = useExpenseStore()
+const templateStore = useTemplateStore()
 const { currentPeriod, setPeriod, isCurrentPeriod, periodLabel } = usePeriod()
 const ready = ref(false)
 const manualExpenseSheetOpen = ref(false)
@@ -45,6 +48,8 @@ watch(
   { immediate: true },
 )
 
+templateStore.fetchTemplates().finally(() => undefined)
+
 async function handleToggle(id: string, status: 'pending' | 'paid') {
   await store.toggleStatus(id, status)
 }
@@ -54,10 +59,22 @@ async function handleManualExpenseSaved(payload: CreateManualExpenseInput) {
   manualExpenseSheetOpen.value = false
 }
 
+async function handleInitMonth() {
+  if (templateStore.templates.length === 0) {
+    toast.warning('No tienes plantillas creadas. Ve a Plantillas para crear la base de tus gastos mensuales.')
+    return
+  }
+
+  await store.generateForPeriod(currentPeriod.value)
+}
+
 const activeTab = ref<'all' | 'pending' | 'paid'>('all')
 
 const isSearchActive = computed(() => searchQuery.value.trim().length > 0)
 const isFilterActive = computed(() => isSearchActive.value || dueDayFilter.value !== null)
+const showInitMonthAction = computed(
+  () => ready.value && !store.hasMonthInitializedFromTemplates,
+)
 
 const queriedExpenses = computed(() =>
   filterByQuery(store.expenses, searchQuery.value, expenseQueryFields),
@@ -117,6 +134,16 @@ const allPaid = computed(
         :disabled="store.loading"
         @update:period-key="setPeriod"
       />
+      <Button
+        v-if="showInitMonthAction"
+        size="sm"
+        class="gap-1.5 sm:shrink-0"
+        :disabled="store.loading"
+        @click="handleInitMonth"
+      >
+        <RefreshCw class="w-4 h-4" />
+        Iniciar mes
+      </Button>
       <Button size="sm" class="gap-1.5 sm:shrink-0" @click="manualExpenseSheetOpen = true">
         <Plus class="w-4 h-4" />
         Agregar gasto adicional
