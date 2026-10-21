@@ -22,10 +22,12 @@ const props = withDefaults(
     open: boolean
     periodKey?: string
     saving?: boolean
+    initialData?: Partial<CreateManualExpenseInput> | null
   }>(),
   {
     periodKey: undefined,
     saving: false,
+    initialData: null,
   },
 )
 
@@ -74,14 +76,15 @@ watch(
 )
 
 function resetForm() {
+  const init = props.initialData
   form.value = {
-    name: '',
-    description: '',
-    amount: '',
-    dueDay: 'none',
-    category: '',
-    periodKey: props.periodKey ?? getCurrentPeriodKey(),
-    markAsPaid: false,
+    name: init?.name ?? '',
+    description: init?.description ?? '',
+    amount: init?.amount !== undefined ? init.amount : '',
+    dueDay: init?.dueDay ? String(init.dueDay) : 'none',
+    category: init?.category ?? '',
+    periodKey: init?.periodKey ?? props.periodKey ?? getCurrentPeriodKey(),
+    markAsPaid: init?.status === 'paid',
   }
   errors.value = {
     name: '',
@@ -170,7 +173,7 @@ function handleSave() {
       <SheetHeader>
         <SheetTitle>Agregar gasto adicional</SheetTitle>
         <SheetDescription>
-          Registra un gasto único del período sin crear una plantilla recurrente.
+          {{ props.initialData ? 'Revisa y ajusta los datos extraídos del comprobante antes de guardar.' : 'Registra un gasto único del período sin crear una plantilla recurrente.' }}
         </SheetDescription>
       </SheetHeader>
 

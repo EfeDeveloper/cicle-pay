@@ -6,6 +6,7 @@ import { usePeriod } from '@/composables/usePeriod'
 import type { CreateManualExpenseInput, MonthlyExpense } from '@/types/expense'
 import ExpenseListItem from '@/components/expenses/ExpenseListItem.vue'
 import ManualExpenseFormSheet from '@/components/expenses/ManualExpenseFormSheet.vue'
+import ReceiptScannerDialog from '@/components/expenses/ReceiptScannerDialog.vue'
 import DueDayCalendar from '@/components/lists/DueDayCalendar.vue'
 import ListSearchBar from '@/components/lists/ListSearchBar.vue'
 import RecordDetailSheet from '@/components/records/RecordDetailSheet.vue'
@@ -20,8 +21,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { toast } from 'vue-sonner'
-import { CheckCircle2, PackageOpen, InboxIcon, Plus, RefreshCw, Search } from '@lucide/vue'
+import { CheckCircle2, PackageOpen, InboxIcon, Plus, RefreshCw, Search, ChevronDown, Sparkles } from '@lucide/vue'
 
 const store = useExpenseStore()
 const templateStore = useTemplateStore()
@@ -29,12 +36,29 @@ const { currentPeriod, setPeriod, isCurrentPeriod, periodLabel } = usePeriod()
 const ready = ref(false)
 const manualExpenseSheetOpen = ref(false)
 const manualExpenseSaving = ref(false)
+const scannerDialogOpen = ref(false)
+const scannedInitialData = ref<Partial<CreateManualExpenseInput> | null>(null)
 const searchQuery = ref('')
 const dueDayFilter = ref<DueDayFilter>(null)
 const detailOpen = ref(false)
 const detailRecord = ref<RecordDetail | null>(null)
 const initMonthSubmitting = ref(false)
 const initMonthLockedUntil = ref(0)
+
+function openManualExpenseSheet() {
+  scannedInitialData.value = null
+  manualExpenseSheetOpen.value = true
+}
+
+function handleScannedExpense(payload: CreateManualExpenseInput) {
+  scannedInitialData.value = payload
+  manualExpenseSheetOpen.value = true
+  toast.success('Datos extraídos del comprobante')
+}
+
+function handleFallbackManual() {
+  openManualExpenseSheet()
+}
 
 function openExpenseDetail(expense: MonthlyExpense) {
   detailRecord.value = toExpenseDetail(expense)
@@ -164,15 +188,29 @@ const allPaid = computed(
         <RefreshCw class="w-4 h-4" />
         Iniciar mes
       </Button>
-      <Button
-        size="sm"
-        class="gap-1.5 sm:shrink-0"
-        :disabled="manualExpenseSaving"
-        @click="manualExpenseSheetOpen = true"
-      >
-        <Plus class="w-4 h-4" />
-        Agregar gasto adicional
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button
+            size="sm"
+            class="gap-1.5 sm:shrink-0"
+            :disabled="manualExpenseSaving"
+          >
+            <Plus class="w-4 h-4" />
+            <span>Agregar gasto adicional</span>
+            <ChevronDown class="w-3.5 h-3.5 opacity-70" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" class="w-56">
+          <DropdownMenuItem class="cursor-pointer gap-2" @click="openManualExpenseSheet">
+            <Plus class="w-4 h-4 text-muted-foreground" />
+            <span>Ingreso manual</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem class="cursor-pointer gap-2" @click="scannerDialogOpen = true">
+            <Sparkles class="w-4 h-4 text-brand" />
+            <span>Escanear comprobante (IA)</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
 
     <Tabs v-model="activeTab" class="w-full">
@@ -325,8 +363,16 @@ const allPaid = computed(
     :open="manualExpenseSheetOpen"
     :saving="manualExpenseSaving"
     :period-key="currentPeriod"
-    @close="manualExpenseSheetOpen = false"
+    :initial-data="scannedInitialData"
+    @close="manualExpenseSheetOpen = false; scannedInitialData = null"
     @saved="handleManualExpenseSaved"
+  />
+
+  <ReceiptScannerDialog
+    v-model:open="scannerDialogOpen"
+    :period-key="currentPeriod"
+    @extracted="handleScannedExpense"
+    @fallback-manual="handleFallbackManual"
   />
 
   <RecordDetailSheet
